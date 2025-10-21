@@ -1,0 +1,11 @@
+/node_modules
+/dist
+/.env
+/.env.local
+/.env.development
+/.env.test
+/.env.production
+.DS_Store   frontend-vite-backup.tgz
+
+# Uploaded files (served at /uploads)
+uploads/
