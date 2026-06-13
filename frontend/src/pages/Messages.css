@@ -1,0 +1,143 @@
+.messages-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  height: calc(100vh - 200px);
+  min-height: 400px;
+}
+
+.conv-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.conv-empty {
+  padding: 1rem;
+  font-size: 0.9rem;
+}
+
+.conv-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.conv-item:hover {
+  background: var(--surface-2);
+}
+
+.conv-active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.conv-name {
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.conv-preview {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.chat-empty {
+  padding: 2rem;
+  text-align: center;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-bubble {
+  max-width: 70%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-mine {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.chat-theirs {
+  align-self: flex-start;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.chat-text {
+  margin: 0;
+  font-size: 0.95rem;
+  word-wrap: break-word;
+}
+
+.chat-time {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  margin-top: 0.15rem;
+}
+
+.chat-compose {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.chat-compose input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.chat-compose input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+@media (max-width: 700px) {
+  .messages-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .conv-list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .conv-item {
+    min-width: 160px;
+  }
+}

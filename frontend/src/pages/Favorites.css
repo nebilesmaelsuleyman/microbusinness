@@ -1,0 +1,43 @@
+.fav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fav-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.fav-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.fav-name {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.05rem;
+}
+
+.fav-desc {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fav-rating {
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.fav-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}

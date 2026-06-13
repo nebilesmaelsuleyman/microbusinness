@@ -1,0 +1,72 @@
+.notif-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.notif-header .page-title {
+  margin: 0;
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.9rem 1rem;
+  gap: 0.5rem;
+}
+
+.notif-unread {
+  border-left: 3px solid var(--accent);
+}
+
+.notif-content {
+  flex: 1;
+  background: none;
+  border: none;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-family: inherit;
+  color: inherit;
+  padding: 0;
+}
+
+.notif-title {
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.notif-body {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.notif-time {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.notif-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.notif-delete:hover {
+  color: var(--danger);
+}

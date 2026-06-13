@@ -1,0 +1,122 @@
+.earnings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pay-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pay-tab {
+  background: none;
+  border: none;
+  padding: 0.6rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  border-bottom: 2px solid transparent;
+}
+
+.pay-tab-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.pay-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pay-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.pay-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pay-ref {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.pay-amount {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.pay-status {
+  font-size: 0.8rem;
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  width: fit-content;
+  text-transform: capitalize;
+}
+
+.pay-status-paid {
+  background: var(--success);
+  color: var(--bg);
+}
+
+.pay-status-pending {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.pay-status-failed,
+.pay-status-cancelled {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.pay-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pay-lines {
+  list-style: none;
+  margin: 0.25rem 0 0 0;
+  padding: 0.5rem 0 0 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pay-lines li {
+  padding: 0.15rem 0;
+}

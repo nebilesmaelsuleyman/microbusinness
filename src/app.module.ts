@@ -1,0 +1,44 @@
+import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { ProvidersModule } from './providers/providers.module';
+import { CategoriesModule } from './categories/categories.module';
+import { LeadsModule } from './leads/leads.module';
+import { JobsModule } from './jobs/jobs.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { FavoritesModule } from './favorites/favorites.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { MessagesModule } from './messages/messages.module';
+import { PaymentsModule } from './payments/payments.module';
+import { PortfolioModule } from './portfolio/portfolio.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/microbusiness'),
+    AuthModule,
+    UsersModule,
+    ProvidersModule,
+    CategoriesModule,
+    LeadsModule,
+    JobsModule,
+    ReviewsModule,
+    FavoritesModule,
+    SubscriptionsModule,
+    AdminModule,
+    NotificationsModule,
+    MessagesModule,
+    PaymentsModule,
+    PortfolioModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
+})
+export class AppModule {}
