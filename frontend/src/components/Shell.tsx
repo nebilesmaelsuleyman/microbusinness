@@ -230,21 +230,30 @@ export default function Shell({ children }: { children: ReactNode }) {
 
       <footer className="footer">
         <div className="footer-inner">
-          <div className="footer-brand">
-            <span className="logo" style={{ fontSize: 16 }}>
-              <span className="logo-mark" style={{ width: 26, height: 26 }}><IconBolt style={{ width: 14, height: 14 }} /></span>
+          <div className="footer-brand footer-intro">
+            <Link to="/" className="logo" style={{ fontSize: 18 }}>
+              <span className="logo-mark"><IconBolt /></span>
               Servio
-            </span>
-            <span className="footer-tagline">Local services marketplace</span>
+            </Link>
+            <p className="footer-tagline">A simpler way to find dependable local professionals, right where you live.</p>
           </div>
-          <div className="footer-links">
-            <span>Trusted local pros</span>
-            <span>·</span>
-            <span>Verified &amp; reviewed</span>
-            <span>·</span>
-            <span>© {new Date().getFullYear()} Servio</span>
+          <div className="footer-column">
+            <strong>Explore</strong>
+            <Link to="/">Find a professional</Link>
+            <Link to="/login">Create an account</Link>
+          </div>
+          <div className="footer-column">
+            <strong>For professionals</strong>
+            <Link to="/login">Join Servio</Link>
+            <Link to="/dashboard">Manage your profile</Link>
+          </div>
+          <div className="footer-column footer-cities">
+            <strong>Serving Ethiopia</strong>
+            <span>Addis Ababa · Jimma · Hawassa</span>
+            <span>Bahir Dar · Dire Dawa · Adama</span>
           </div>
         </div>
+        <div className="footer-bottom"><span>© {new Date().getFullYear()} Servio. All rights reserved.</span><span>Verified local professionals · Built for Ethiopia</span></div>
       </footer>
     </div>
   );

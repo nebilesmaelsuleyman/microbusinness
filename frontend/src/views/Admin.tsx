@@ -7,7 +7,7 @@ import {
   type Review, type Job, type Role, type JobStatus, type AuditLog,
 } from '../api/client';
 import { useToast } from '../contexts/ToastContext';
-import { providerName, currency, relativeTime, userName, VERIFICATION_META, STATUS_META } from '../lib/format';
+import { providerName, currency, relativeTime, userName, verificationMeta, STATUS_META } from '../lib/format';
 import { Avatar, Field, PageLoader, EmptyState, Modal, Badge } from '../components/ui';
 import {
   IconGrid, IconShieldCheck, IconDoc, IconTag, IconSparkle,
@@ -248,7 +248,7 @@ function Providers() {
   return (
     <div className="card card-pad">
       {list.map((p) => {
-        const verif = VERIFICATION_META[p.verificationStatus];
+        const verif = verificationMeta(p.verificationStatus);
         return (
           <div key={p._id} className="list-row">
             <Avatar name={providerName(p)} size="md" />

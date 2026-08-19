@@ -6,7 +6,7 @@ import {
   type ProviderProfile, type Job, type Lead, type ProviderSubscription,
 } from '../api/client';
 import { useToast } from '../contexts/ToastContext';
-import { userName, relativeTime, formatDate, VERIFICATION_META } from '../lib/format';
+import { userName, relativeTime, formatDate, verificationMeta } from '../lib/format';
 import { Avatar, PageLoader, EmptyState } from '../components/ui';
 import {
   IconBriefcase, IconInbox, IconStar, IconClock, IconCheck, IconX,
@@ -64,7 +64,9 @@ export default function ProviderDashboard() {
 
   const pending = jobs.filter((j) => j.status === 'requested');
   const accepted = jobs.filter((j) => j.status === 'accepted');
-  const verif = VERIFICATION_META[profile.verificationStatus];
+  // Older profiles can have an empty verification status. Treat those safely as pending.
+  const verif = verificationMeta(profile.verificationStatus);
+  const publicProfileUserId = typeof profile.userId === 'string' ? profile.userId : profile.userId?._id;
 
   const stats = [
     { label: 'New requests', value: pending.length, icon: <IconInbox /> },
@@ -155,7 +157,7 @@ export default function ProviderDashboard() {
           <p className="muted" style={{ marginTop: 0 }}>{profile.serviceDescription || 'No description yet.'}</p>
           <div className="row gap-8 wrap mt-8">
             <Link to="/dashboard/profile" className="btn btn-ghost btn-sm"><IconUser /> Edit profile</Link>
-            <Link to={`/provider/${typeof profile.userId === 'string' ? profile.userId : profile.userId._id}`} className="btn btn-ghost btn-sm">View public page</Link>
+            {publicProfileUserId && <Link to={`/provider/${publicProfileUserId}`} className="btn btn-ghost btn-sm">View public page</Link>}
           </div>
         </div>
 

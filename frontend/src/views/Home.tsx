@@ -1,12 +1,14 @@
 'use client';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { categoriesApi, providersApi, type Category, type ProviderProfile, type SearchParams } from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import { useFavorites } from '../lib/useFavorites';
 import ProviderCard from '../components/ProviderCard';
 import { ProviderCardSkeleton, EmptyState, Avatar } from '../components/ui';
 import { categoryEmoji, providerName, providerPhoto } from '../lib/format';
+import { ETHIOPIAN_CITIES } from '../lib/ethiopianCities';
 import {
   IconSearch, IconMapPin, IconShieldCheck, IconStar, IconBolt, IconUsers,
   IconSparkle, IconArrowRight, IconCheckCircle, IconPhone, IconTrending,
@@ -140,10 +142,14 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
   const [categoryId, setCategoryId] = useState('');
   const [minRating, setMinRating] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [city, setCity] = useState('');
   const [locating, setLocating] = useState(false);
   const [view, setView] = useState<'list' | 'map'>('list');
   const [loading, setLoading] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const appliedServiceRef = useRef('');
+  const searchParams = useSearchParams();
+  const requestedService = searchParams.get('service')?.trim() ?? '';
 
   useEffect(() => {
     if (initialCategories.length) return;
@@ -152,7 +158,7 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
 
   const runSearch = useCallback(() => {
     setLoading(true);
-    const params: SearchParams = { limit: 6 }; // Show only 6 on landing
+    const params: SearchParams = { limit: requestedService ? 100 : 6 };
     if (categoryId) params.categoryId = categoryId;
     if (minRating) params.minRating = Number(minRating);
     if (coords) { params.latitude = coords.lat; params.longitude = coords.lng; params.maxDistanceKm = 50; }
@@ -160,7 +166,7 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
       .then(setProviders)
       .catch(() => setProviders([]))
       .finally(() => setLoading(false));
-  }, [categoryId, minRating, coords]);
+  }, [categoryId, minRating, coords, requestedService]);
 
   const seeded = useRef(initialProviders.length > 0);
   useEffect(() => {
@@ -168,18 +174,41 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
     runSearch();
   }, [runSearch]);
 
+  // The Services menu links here with a readable service name. Resolve it to a
+  // real category after the categories have loaded, then retrieve every match.
+  useEffect(() => {
+    if (!requestedService) { appliedServiceRef.current = ''; return; }
+    if (categories.length === 0) return;
+    const matchingCategory = categories.find((item) => item.name.toLowerCase() === requestedService.toLowerCase());
+    const nextCategoryId = matchingCategory?._id ?? '';
+    if (appliedServiceRef.current !== requestedService && categoryId !== nextCategoryId) {
+      appliedServiceRef.current = requestedService;
+      setCategoryId(nextCategoryId);
+      return;
+    }
+    appliedServiceRef.current = requestedService;
+    runSearch();
+  }, [requestedService, categories, categoryId, runSearch]);
+
   const useMyLocation = () => {
     if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setCity('');
         setLocating(false);
         toast.success('Showing providers near you');
       },
       () => { setLocating(false); toast.error('Could not get your location'); },
       { enableHighAccuracy: true, timeout: 8000 },
     );
+  };
+
+  const selectCity = (name: string) => {
+    setCity(name);
+    const selected = ETHIOPIAN_CITIES.find((item) => item.name === name);
+    setCoords(selected ? { lat: selected.lat, lng: selected.lng } : null);
   };
 
   const selectCategory = (id: string) => {
@@ -240,15 +269,28 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
                 {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
               </select>
             </div>
-            <div className="hs-sep" aria-hidden />
-            <button
+              <div className="hs-sep" aria-hidden />
+              <div className="hs-field hs-city-field">
+                <IconMapPin className="hs-ic" />
+                <select
+                  className="hs-select"
+                  value={city}
+                  onChange={(e) => selectCity(e.target.value)}
+                  aria-label="Choose a city"
+                >
+                  <option value="">Choose a city</option>
+                  {ETHIOPIAN_CITIES.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+                </select>
+              </div>
+              <div className="hs-sep" aria-hidden />
+              <button
               className={`hs-loc${coords ? ' hs-loc-active' : ''}`}
               onClick={useMyLocation}
               disabled={locating}
               aria-label="Use my location"
             >
               <IconMapPin style={{ width: 18, height: 18 }} />
-              <span>{locating ? 'Locating…' : coords ? 'Near you' : 'Near me'}</span>
+              <span>{locating ? 'Locating…' : city || (coords ? 'Near you' : 'Near me')}</span>
             </button>
             <button className="hs-btn" onClick={runSearch} aria-label="Search">
               <IconSearch style={{ width: 18, height: 18 }} />
@@ -319,7 +361,7 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
               <Reveal key={s.label} delay={i * 60}>
                 <button
                   className="svc-card"
-                  onClick={() => selectCategory('')}
+                  onClick={() => selectCategory(categories.find((c) => c.name.toLowerCase() === s.label.toLowerCase())?._id ?? '')}
                   style={{ '--svc-color': s.color, '--svc-bg': s.bg } as React.CSSProperties}
                 >
                   <span className="svc-icon">{s.icon}</span>
@@ -339,10 +381,14 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
               <div>
                 <span className="sec-eyebrow">Top rated</span>
                 <h2 className="sec-title">
-                  {coords ? 'Providers near you' : categoryId ? 'Matching providers' : 'Featured providers'}
+                  {requestedService ? `${requestedService} professionals` : coords ? 'Providers near you' : categoryId ? 'Matching providers' : 'Featured providers'}
                 </h2>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="top-rated-controls">
+                <select className="select top-category-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Top rated service category">
+                  <option value="">All categories</option>
+                  {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
                 {/* Rating filter */}
                 <div className="input-icon" style={{ width: 160 }}>
                   <IconStar style={{ width: 16, height: 16, color: '#f59e0b' }} />
@@ -363,15 +409,22 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
               </div>
             </div>
 
-            {/* Category chips */}
+            {/* Keep the landing page focused: three quick picks, with every category in the dropdown above. */}
             {categories.length > 0 && (
-              <div className="cat-scroll mb-16">
-                <button className={`chip${categoryId === '' ? ' active' : ''}`} onClick={() => setCategoryId('')}>All</button>
-                {categories.map((c) => (
-                  <button key={c._id} className={`chip${categoryId === c._id ? ' active' : ''}`} onClick={() => setCategoryId(c._id)}>
-                    {c.name}
-                  </button>
+              <div className="cat-scroll mb-16" aria-label="Popular service categories">
+                {categories.slice(0, 3).map((c) => (
+                  <button key={c._id} className={`chip${categoryId === c._id ? ' active' : ''}`} onClick={() => setCategoryId(c._id)}>{c.name}</button>
                 ))}
+              </div>
+            )}
+
+            {requestedService && (
+              <div className="service-results-intro">
+                <span className="service-results-mark"><IconSparkle /></span>
+                <div>
+                  <strong>Explore {requestedService} services</strong>
+                  <p>Browse every available professional, compare their experience and ratings, and see exactly what each provider offers.</p>
+                </div>
               </div>
             )}
 
@@ -395,6 +448,7 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
                     provider={p}
                     favorited={fav.enabled ? fav.ids.has(p._id) : undefined}
                     onToggleFavorite={fav.enabled ? fav.toggle : undefined}
+                    showFullDescription={Boolean(requestedService)}
                   />
                 ))}
               </div>

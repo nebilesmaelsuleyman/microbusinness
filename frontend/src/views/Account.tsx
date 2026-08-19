@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Avatar, Field, PageLoader } from '../components/ui';
 import { IconMapPin, IconCheck } from '../components/icons';
+import { ETHIOPIAN_CITIES, cityForCoordinates } from '../lib/ethiopianCities';
 
 export default function Account() {
   const { user, setUser } = useAuth();
@@ -14,6 +15,7 @@ export default function Account() {
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [city, setCity] = useState('');
   const [hasLocation, setHasLocation] = useState(false);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -23,7 +25,7 @@ export default function Account() {
       .then((u) => {
         setName(u.name || '');
         setPhoto(u.profilePhoto || '');
-        if (u.location) { setHasLocation(true); }
+        if (u.location) { setHasLocation(true); setCity(cityForCoordinates(u.location.latitude, u.location.longitude) ?? ''); }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -33,9 +35,15 @@ export default function Account() {
     if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setHasLocation(true); setLocating(false); toast.success('Location captured'); },
+      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setCity(''); setHasLocation(true); setLocating(false); toast.success('Location captured'); },
       () => { setLocating(false); toast.error('Could not get location'); },
     );
+  };
+
+  const selectCity = (name: string) => {
+    setCity(name);
+    const selected = ETHIOPIAN_CITIES.find((item) => item.name === name);
+    if (selected) { setCoords({ lat: selected.lat, lng: selected.lng }); setHasLocation(true); }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -81,11 +89,17 @@ export default function Account() {
           <input id="photo" className="input" value={photo} onChange={(e) => setPhoto(e.target.value)} placeholder="https://…" />
         </Field>
 
-        <Field label="Location" hint="Used to find nearby providers and match you locally.">
-          <button type="button" className={`btn ${coords ? 'btn-soft' : 'btn-ghost'}`} onClick={useMyLocation} disabled={locating}>
-            {coords ? <IconCheck /> : <IconMapPin />}
-            {locating ? 'Locating…' : coords ? `Captured (${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)})` : hasLocation ? 'Update my location' : 'Use my current location'}
-          </button>
+        <Field label="Location" hint="Choose the city you use most. This helps us match you with nearby providers.">
+          <div className="location-choice">
+            <select className="select" value={city} onChange={(e) => selectCity(e.target.value)} aria-label="Choose your city">
+              <option value="">Choose a city</option>
+              {ETHIOPIAN_CITIES.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+            </select>
+            <button type="button" className={`btn ${coords && !city ? 'btn-soft' : 'btn-ghost'}`} onClick={useMyLocation} disabled={locating}>
+              {coords && !city ? <IconCheck /> : <IconMapPin />}
+              {locating ? 'Locating…' : city ? 'Use my exact location' : hasLocation ? 'Update exact location' : 'Use my exact location'}
+            </button>
+          </div>
         </Field>
 
         <button className="btn btn-primary btn-lg" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>

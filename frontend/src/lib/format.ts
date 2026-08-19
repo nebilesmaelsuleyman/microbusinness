@@ -111,3 +111,8 @@ export const VERIFICATION_META: Record<string, { label: string; cls: string }> =
   pending: { label: 'Pending review', cls: 'badge-warning' },
   rejected: { label: 'Rejected', cls: 'badge-danger' },
 };
+
+/** Safely render verification data from both current and older provider records. */
+export function verificationMeta(status?: string | null) {
+  return VERIFICATION_META[status ?? ''] ?? VERIFICATION_META.pending;
+}

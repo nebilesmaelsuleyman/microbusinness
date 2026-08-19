@@ -75,8 +75,8 @@ export class ProvidersService {
     userId: string,
     dto: UpdateProviderProfileDto,
   ): Promise<ProviderProfileDocument> {
-    const profile = await this.providerModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
-    if (!profile) throw new NotFoundException('Provider profile not found');
+    const ownerId = new Types.ObjectId(userId);
+    const profile = await this.providerModel.findOne({ userId: ownerId }).exec();
     const update: Record<string, unknown> = { ...dto };
     if (dto.latitude != null && dto.longitude != null) {
       update.coordinates = { type: 'Point', coordinates: [dto.longitude, dto.latitude] };
@@ -86,6 +86,20 @@ export class ProvidersService {
     }
     delete update.latitude;
     delete update.longitude;
+
+    // A legacy/incomplete account can enter the edit screen without a persisted
+    // profile. Saving should establish that profile, not strand the provider on
+    // a 404 response.
+    if (!profile) {
+      const created = await this.providerModel.findOneAndUpdate(
+        { userId: ownerId },
+        { $set: update, $setOnInsert: { userId: ownerId } },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      ).exec();
+      if (!created) throw new NotFoundException('Could not create provider profile');
+      return created;
+    }
+
     const updated = await this.providerModel
       .findByIdAndUpdate(profile._id, { $set: update }, { new: true })
       .exec();
@@ -148,8 +162,28 @@ export class ProvidersService {
     userId: string,
     dto: { documentType: string; documentUrl: string },
   ): Promise<ProviderVerificationDocumentDoc> {
-    const profile = await this.providerModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
-    if (!profile) throw new NotFoundException('Provider profile not found');
+    const ownerId = new Types.ObjectId(userId);
+    let profile = await this.providerModel.findOne({ userId: ownerId }).exec();
+
+    // Legacy/incomplete provider accounts can reach document upload before a
+    // profile was persisted. Keep the verification flow usable and associate
+    // the document with a valid profile owned by the authenticated user.
+    if (!profile) {
+      profile = await this.providerModel.findOneAndUpdate(
+        { userId: ownerId },
+        {
+          $setOnInsert: {
+            userId: ownerId,
+            serviceCategories: [],
+            serviceDescription: '',
+            yearsOfExperience: 0,
+            serviceRadiusKm: 10,
+            coordinates: { type: 'Point', coordinates: [0, 0] },
+          },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      ).exec();
+    }
     return this.addVerificationDocument(profile._id.toString(), dto.documentType, dto.documentUrl);
   }
 

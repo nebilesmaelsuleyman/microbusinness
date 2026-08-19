@@ -7,11 +7,12 @@ import {
   type PricingModel, type ProviderProfileInput,
 } from '../api/client';
 import { useToast } from '../contexts/ToastContext';
-import { VERIFICATION_META } from '../lib/format';
+import { verificationMeta } from '../lib/format';
 import { Field, PageLoader } from '../components/ui';
 import {
   IconCheck, IconMapPin, IconShieldCheck, IconUpload, IconDoc, IconArrowRight, IconAlert,
 } from '../components/icons';
+import { ETHIOPIAN_CITIES, cityForCoordinates } from '../lib/ethiopianCities';
 
 const PRICING: { value: PricingModel; label: string }[] = [
   { value: 'fixed', label: 'Fixed price' },
@@ -35,6 +36,7 @@ export default function ProviderProfileEdit() {
   const [radius, setRadius] = useState('10');
   const [pricing, setPricing] = useState<PricingModel>('quote');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [city, setCity] = useState('');
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -56,6 +58,8 @@ export default function ProviderProfileEdit() {
           setExperience(String(p.yearsOfExperience ?? ''));
           setRadius(String(p.serviceRadiusKm ?? 10));
           setPricing(p.pricingModel || 'quote');
+          const [lng, lat] = p.coordinates?.coordinates ?? [];
+          setCity(cityForCoordinates(lat, lng) ?? '');
         }
       }),
       providersApi.myDocuments().then(setDocs).catch(() => setDocs([])),
@@ -70,11 +74,17 @@ export default function ProviderProfileEdit() {
     });
   };
 
+  const selectCity = (name: string) => {
+    setCity(name);
+    const selected = ETHIOPIAN_CITIES.find((item) => item.name === name);
+    if (selected) setCoords({ lat: selected.lat, lng: selected.lng });
+  };
+
   const useMyLocation = () => {
     if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocating(false); toast.success('Location captured'); },
+      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setCity(''); setLocating(false); toast.success('Location captured'); },
       () => { setLocating(false); toast.error('Could not get location'); },
     );
   };
@@ -120,6 +130,8 @@ export default function ProviderProfileEdit() {
 
   if (loading) return <div className="page"><PageLoader /></div>;
 
+  const profileVerification = existing ? verificationMeta(existing.verificationStatus) : null;
+
   return (
     <div className="page-narrow">
       <Link to="/dashboard" className="btn-link small">← Back to dashboard</Link>
@@ -164,10 +176,16 @@ export default function ProviderProfileEdit() {
           </div>
         </Field>
 
-        <Field label="Base location" hint="Used to match you with nearby customers in distance searches.">
-          <button type="button" className={`btn ${coords ? 'btn-soft' : 'btn-ghost'}`} onClick={useMyLocation} disabled={locating}>
-            <IconMapPin /> {locating ? 'Locating…' : coords ? `Captured (${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)})` : existing?.coordinates ? 'Update my location' : 'Use my current location'}
-          </button>
+        <Field label="Base location" hint="Choose the city where you primarily work. You can use exact location for more precise matching.">
+          <div className="location-choice">
+            <select className="select" value={city} onChange={(e) => selectCity(e.target.value)} aria-label="Choose your base city">
+              <option value="">Choose a city</option>
+              {ETHIOPIAN_CITIES.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+            </select>
+            <button type="button" className={`btn ${coords && !city ? 'btn-soft' : 'btn-ghost'}`} onClick={useMyLocation} disabled={locating}>
+              <IconMapPin /> {locating ? 'Locating…' : city ? 'Use my exact location' : existing?.coordinates ? 'Update exact location' : 'Use my exact location'}
+            </button>
+          </div>
         </Field>
 
         <button className="btn btn-primary btn-block btn-lg" disabled={saving}>
@@ -180,7 +198,7 @@ export default function ProviderProfileEdit() {
         <div className="card card-pad mt-24">
           <div className="section-head" style={{ marginBottom: 6 }}>
             <h2><IconShieldCheck style={{ width: 18, height: 18, verticalAlign: -3, color: 'var(--success)' }} /> Verification</h2>
-            <span className={`badge ${VERIFICATION_META[existing.verificationStatus].cls}`}>{VERIFICATION_META[existing.verificationStatus].label}</span>
+            <span className={`badge ${profileVerification?.cls}`}>{profileVerification?.label}</span>
           </div>
 
           {existing.verificationStatus !== 'approved' && (
@@ -222,7 +240,7 @@ export default function ProviderProfileEdit() {
                     <div className="lr-title" style={{ textTransform: 'capitalize' }}>{d.documentType.replace(/_/g, ' ')}</div>
                     <div className="lr-sub"><a href={d.documentUrl} target="_blank" rel="noreferrer">{d.documentUrl.slice(0, 44)}…</a></div>
                   </div>
-                  <span className={`badge ${VERIFICATION_META[d.status].cls}`}>{VERIFICATION_META[d.status].label}</span>
+                  {(() => { const status = verificationMeta(d.status); return <span className={`badge ${status.cls}`}>{status.label}</span>; })()}
                 </div>
               ))}
             </div>

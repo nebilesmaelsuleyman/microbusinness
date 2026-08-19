@@ -20,16 +20,15 @@ async function bootstrap() {
   // Serve uploaded files (verification documents, etc.) from /uploads.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
-  // CORS — restrict to configured frontend origins; default covers common localhost dev ports.
-  const corsOrigins = (
-    process.env.CORS_ORIGINS ??
-    'http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001'
-  )
-    .split(',')
+  // Development: allow any browser origin so local frontends on any port can
+  // call the API. Set CORS_ORIGINS as a comma-separated allow-list in
+  // production (for example, the deployed Vercel domain).
+  const corsOrigins = process.env.CORS_ORIGINS
+    ?.split(',')
     .map((o) => o.trim())
     .filter(Boolean);
   app.enableCors({
-    origin: corsOrigins.length ? corsOrigins : true,
+    origin: corsOrigins?.length ? corsOrigins : true,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],

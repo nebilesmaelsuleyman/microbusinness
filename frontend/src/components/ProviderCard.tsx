@@ -9,16 +9,17 @@ interface Props {
   provider: ProviderProfile;
   favorited?: boolean;
   onToggleFavorite?: (p: ProviderProfile) => void;
+  showFullDescription?: boolean;
 }
 
-export default function ProviderCard({ provider, favorited, onToggleFavorite }: Props) {
+export default function ProviderCard({ provider, favorited, onToggleFavorite, showFullDescription = false }: Props) {
   const name = providerName(provider);
   const uid = providerUserId(provider);
   const cats = categoryNames(provider);
   const verified = provider.verificationStatus === 'approved';
 
   return (
-    <div className="card card-hover pcard">
+    <div className={`card card-hover pcard${showFullDescription ? ' pcard-service-result' : ''}`}>
       <div className="pcard-top">
         <Avatar name={name} src={providerPhoto(provider)} size="md" />
         <div className="grow" style={{ minWidth: 0 }}>
