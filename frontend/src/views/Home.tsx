@@ -72,7 +72,7 @@ const TESTIMONIALS = [
     n: 'Sarah M.', r: 'Homeowner', initials: 'SM', clr: '#4f46e5',
   },
   {
-    q: "As an electrician, half my new jobs now come through Servio. The verification badge builds instant trust with customers.",
+    q: "As an electrician, half my new jobs now come through Sira. The verification badge builds instant trust with customers.",
     n: 'Bright Volt', r: 'Service provider', initials: 'BV', clr: '#f59e0b',
   },
   {
@@ -485,7 +485,7 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
           </div>
         </Reveal>
 
-        {/* ══════════════════════════════════════════ WHY SERVIO */}
+        {/* ══════════════════════════════════════════ WHY SIRA */}
         <Reveal className="lp-section">
           <div className="sec-head center-head">
             <div>

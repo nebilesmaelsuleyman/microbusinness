@@ -183,7 +183,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         <div className="header-inner">
           <Link to="/" className="logo">
             <span className="logo-mark"><IconBolt /></span>
-            Servio
+            Sira
           </Link>
 
           <nav className="nav">
@@ -233,7 +233,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           <div className="footer-brand footer-intro">
             <Link to="/" className="logo" style={{ fontSize: 18 }}>
               <span className="logo-mark"><IconBolt /></span>
-              Servio
+              Sira
             </Link>
             <p className="footer-tagline">A simpler way to find dependable local professionals, right where you live.</p>
           </div>
@@ -244,7 +244,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="footer-column">
             <strong>For professionals</strong>
-            <Link to="/login">Join Servio</Link>
+            <Link to="/login">Join Sira</Link>
             <Link to="/dashboard">Manage your profile</Link>
           </div>
           <div className="footer-column footer-cities">
@@ -253,7 +253,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <span>Bahir Dar · Dire Dawa · Adama</span>
           </div>
         </div>
-        <div className="footer-bottom"><span>© {new Date().getFullYear()} Servio. All rights reserved.</span><span>Verified local professionals · Built for Ethiopia</span></div>
+        <div className="footer-bottom"><span>© {new Date().getFullYear()} Sira. All rights reserved.</span><span>Verified local professionals · Built for Ethiopia</span></div>
       </footer>
     </div>
   );
