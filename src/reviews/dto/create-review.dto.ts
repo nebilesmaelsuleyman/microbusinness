@@ -1,7 +1,10 @@
-import { IsNumber, IsString, Min, Max, IsOptional } from 'class-validator';
+import { IsNumber, IsString, Min, Max, IsOptional, IsMongoId } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateReviewDto {
+  @IsMongoId()
+  jobId: string;
+
   @IsNumber()
   @Min(1)
   @Max(5)

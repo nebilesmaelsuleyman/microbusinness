@@ -28,16 +28,47 @@ export class User {
 
   @Prop({
     type: {
-      latitude: { type: Number },
-      longitude: { type: Number },
+      city: { type: String, default: null },
+      formattedAddress: { type: String, default: null },
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
     },
     default: null,
   })
-  location: { latitude: number; longitude: number } | null;
+  location: {
+    city?: string | null;
+    formattedAddress?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
 
   // Admins can suspend accounts; suspended users cannot authenticate.
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ type: String, default: null, select: false })
+  totpSecret: string | null;
+
+  @Prop({ default: false })
+  totpEnabled: boolean;
+
+  // Hashed identifier for the currently valid refresh token (rotated on refresh).
+  @Prop({ type: String, default: null, select: false })
+  refreshTokenHash: string | null;
+
+  // Password reset token (hashed) and expiry
+  @Prop({ type: String, default: null, select: false })
+  passwordResetHash: string | null;
+
+  @Prop({ type: Date, default: null })
+  passwordResetExpires: Date | null;
+
+  // Email verification
+  @Prop({ default: false })
+  emailVerified: boolean;
+
+  @Prop({ type: String, default: null, select: false })
+  emailVerificationHash: string | null;
 
 }
 

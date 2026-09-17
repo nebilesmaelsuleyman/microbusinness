@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from '@/lib/router-compat';
 import {
   providersApi, reviewsApi, jobsApi, leadsApi,
-  type ProviderProfile as TProfile, type Review,
+  type ProviderProfile as TProfile, type Review, type Job,
 } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -34,6 +34,7 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
 
   const [profile, setProfile] = useState<TProfile | null>(initialProfile);
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(!initialProfile);
   const [notFound, setNotFound] = useState(false);
 
@@ -51,6 +52,7 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
   // review form
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [reviewJobId, setReviewJobId] = useState('');
 
   // Server already provided the first render's data; only fetch on the client
   // when it wasn't (client-side navigation) or when the id changes.
@@ -68,6 +70,17 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [userId]);
+
+  useEffect(() => {
+    if (!token || user?.role !== 'customer' || !profile) {
+      setJobs([]);
+      return;
+    }
+
+    jobsApi.myList()
+      .then((list) => setJobs(list))
+      .catch(() => setJobs([]));
+  }, [token, user?.role, profile]);
 
   if (loading) return <div className="page"><PageLoader /></div>;
   if (notFound || !profile) {
@@ -87,6 +100,14 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
   const verified = profile.verificationStatus === 'approved';
   const isOwn = user?.id === providerUserId(profile);
   const canAct = token && user?.role === 'customer' && !isOwn;
+  const reviewableJobs = jobs.filter((j) => {
+    const providerRef = j.providerId;
+    const providerMatches = typeof providerRef === 'string'
+      ? providerRef === profile._id
+      : providerRef?._id === profile._id;
+    return providerMatches && j.status === 'completed' && j.paymentStatus === 'paid';
+  });
+  const canReview = canAct && reviewableJobs.length > 0;
 
   const requireCustomer = (): boolean => {
     if (!token) { toast.error('Please sign in to continue'); navigate('/login'); return false; }
@@ -106,6 +127,15 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
     } finally {
       setContacting(false);
     }
+  };
+
+  const openReview = () => {
+    if (!canReview) {
+      toast.error('Complete and pay for a job before leaving a review');
+      return;
+    }
+    setReviewJobId(reviewableJobs[0]?._id ?? '');
+    setShowReview(true);
   };
 
   const handleRequest = async (e: React.FormEvent) => {
@@ -134,7 +164,8 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
     if (!requireCustomer()) return;
     setSubmitting(true);
     try {
-      await reviewsApi.create(profile._id, { rating, comment: comment.trim() || undefined });
+      if (!reviewJobId) throw new Error('Please choose a completed job');
+      await reviewsApi.create(profile._id, { jobId: reviewJobId, rating, comment: comment.trim() || undefined });
       const fresh = await reviewsApi.byProvider(profile._id);
       setReviews(fresh);
       const updated = await providersApi.getProfile(userId!).catch(() => null);
@@ -144,7 +175,7 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not submit review';
       toast.error(msg.toLowerCase().includes('lead') || msg.toLowerCase().includes('forbidden')
-        ? 'You can review a provider only after contacting them'
+        ? 'You can review a provider only after a completed and paid job'
         : msg);
     } finally {
       setSubmitting(false);
@@ -203,11 +234,16 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
           <div className="card card-pad">
             <div className="section-head" style={{ marginBottom: 4 }}>
               <h2 style={{ fontSize: 18 }}>Reviews {profile.reviewCount > 0 && <span className="muted">({profile.reviewCount})</span>}</h2>
-              {canAct && <button className="btn btn-ghost btn-sm" onClick={() => setShowReview(true)}><IconStar style={{ width: 15, height: 15 }} /> Write a review</button>}
+              {canAct && <button className="btn btn-ghost btn-sm" onClick={openReview} disabled={!canReview}><IconStar style={{ width: 15, height: 15 }} /> Write a review</button>}
             </div>
+            {canAct && !canReview && (
+              <div className="banner banner-info mb-12">
+                <IconStar /> Complete and pay for a job first, then the review form will unlock.
+              </div>
+            )}
             {reviews.length === 0 ? (
               <EmptyState icon={<IconStar />} title="No reviews yet">
-                Be the first to review this provider after you’ve contacted them.
+                Be the first to review this provider after a completed and paid job.
               </EmptyState>
             ) : (
               <div>
@@ -290,13 +326,22 @@ export default function ProviderProfile({ userId: userIdProp, initialProfile = n
       {showReview && (
         <Modal title={`Review ${name.split(' ')[0]}`} onClose={() => setShowReview(false)}>
           <form onSubmit={handleReview}>
+            <Field label="Job to review" hint="Pick the completed job that this review belongs to.">
+              <select className="input" value={reviewJobId} onChange={(e) => setReviewJobId(e.target.value)}>
+                {reviewableJobs.map((job) => (
+                  <option key={job._id} value={job._id}>
+                    {job.description ? job.description.slice(0, 60) : 'Completed job'} · {job._id}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Your rating">
               <StarsInput value={rating} onChange={setRating} />
             </Field>
             <Field label="Comment (optional)">
               <textarea className="textarea" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Share details of your experience…" rows={4} />
             </Field>
-            <div className="banner banner-info" style={{ marginBottom: 14 }}><IconStar /> You can review a provider only after you’ve contacted them.</div>
+            <div className="banner banner-info" style={{ marginBottom: 14 }}><IconStar /> You can review a provider only after the job is completed and payment is confirmed.</div>
             <button className="btn btn-primary btn-block" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit review'}</button>
           </form>
         </Modal>

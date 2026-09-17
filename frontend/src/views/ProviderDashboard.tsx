@@ -31,7 +31,7 @@ export default function ProviderDashboard() {
     ]).finally(() => setLoading(false));
   }, []);
 
-  const update = async (id: string, status: 'accepted' | 'rejected') => {
+  const update = async (id: string, status: 'accepted' | 'rejected' | 'completed') => {
     setUpdating(id);
     try {
       const updated = await jobsApi.updateStatus(id, status);
@@ -119,6 +119,10 @@ export default function ProviderDashboard() {
                   <div className="lr-actions">
                     <button className="btn btn-success btn-sm btn-icon" title="Accept" onClick={() => update(j._id, 'accepted')} disabled={updating === j._id}><IconCheck /></button>
                     <button className="btn btn-ghost btn-sm btn-icon" title="Decline" onClick={() => update(j._id, 'rejected')} disabled={updating === j._id}><IconX /></button>
+                  </div>
+                ) : j.status === 'accepted' ? (
+                  <div className="lr-actions">
+                    <button className="btn btn-primary btn-sm btn-icon" title="Mark completed" onClick={() => update(j._id, 'completed')} disabled={updating === j._id}><IconCheck /></button>
                   </div>
                 ) : (
                   <span className={`badge ${({ accepted: 'badge-success', completed: 'badge-primary', rejected: 'badge-danger', cancelled: 'badge', requested: 'badge-warning' } as Record<string, string>)[j.status]}`}>{j.status}</span>

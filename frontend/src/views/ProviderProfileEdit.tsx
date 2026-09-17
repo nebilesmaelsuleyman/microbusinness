@@ -12,7 +12,7 @@ import { Field, PageLoader } from '../components/ui';
 import {
   IconCheck, IconMapPin, IconShieldCheck, IconUpload, IconDoc, IconArrowRight, IconAlert,
 } from '../components/icons';
-import { ETHIOPIAN_CITIES, cityForCoordinates } from '../lib/ethiopianCities';
+import { ETHIOPIAN_CITIES } from '../lib/ethiopianCities';
 
 const PRICING: { value: PricingModel; label: string }[] = [
   { value: 'fixed', label: 'Fixed price' },
@@ -58,8 +58,10 @@ export default function ProviderProfileEdit() {
           setExperience(String(p.yearsOfExperience ?? ''));
           setRadius(String(p.serviceRadiusKm ?? 10));
           setPricing(p.pricingModel || 'quote');
-          const [lng, lat] = p.coordinates?.coordinates ?? [];
-          setCity(cityForCoordinates(lat, lng) ?? '');
+          if (p.location?.latitude && p.location?.longitude) {
+            setCoords({ lat: p.location.latitude, lng: p.location.longitude });
+            setCity(p.location.city || '');
+          }
         }
       }),
       providersApi.myDocuments().then(setDocs).catch(() => setDocs([])),
@@ -99,7 +101,13 @@ export default function ProviderProfileEdit() {
       serviceRadiusKm: radius ? Number(radius) : 10,
       pricingModel: pricing,
     };
-    if (coords) { body.latitude = coords.lat; body.longitude = coords.lng; }
+    if (coords) {
+      body.location = {
+        city: city || undefined,
+        latitude: coords.lat,
+        longitude: coords.lng,
+      };
+    }
     try {
       const saved = existing ? await providersApi.updateProfile(body) : await providersApi.createProfile(body);
       setExisting(saved);
@@ -183,7 +191,7 @@ export default function ProviderProfileEdit() {
               {ETHIOPIAN_CITIES.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
             </select>
             <button type="button" className={`btn ${coords && !city ? 'btn-soft' : 'btn-ghost'}`} onClick={useMyLocation} disabled={locating}>
-              <IconMapPin /> {locating ? 'Locating…' : city ? 'Use my exact location' : existing?.coordinates ? 'Update exact location' : 'Use my exact location'}
+              <IconMapPin /> {locating ? 'Locating…' : city ? 'Use my exact location' : existing?.location?.latitude ? 'Update exact location' : 'Use my exact location'}
             </button>
           </div>
         </Field>

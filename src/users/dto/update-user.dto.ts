@@ -1,12 +1,4 @@
-import { IsString, IsOptional, IsObject, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
-
-class LocationDto {
-  @IsOptional()
-  latitude?: number;
-  @IsOptional()
-  longitude?: number;
-}
+import { IsString, IsOptional, IsObject } from 'class-validator';
 
 export class UpdateUserDto {
   @IsString()
@@ -19,7 +11,10 @@ export class UpdateUserDto {
 
   @IsObject()
   @IsOptional()
-  @ValidateNested()
-  @Type(() => LocationDto)
-  location?: { latitude: number; longitude: number };
+  location?: {
+    city?: string;
+    formattedAddress?: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }

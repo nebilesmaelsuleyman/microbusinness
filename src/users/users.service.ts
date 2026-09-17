@@ -45,6 +45,36 @@ export class UsersService {
     return user;
   }
 
+  async setTotpSecret(id: string, secret: string | null, enabled = false): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { totpSecret: secret, totpEnabled: enabled } }).exec();
+  }
+
+  async setPasswordReset(id: string, hash: string | null, expires: Date | null): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { passwordResetHash: hash, passwordResetExpires: expires } }).exec();
+  }
+
+  async setEmailVerification(id: string, hash: string | null): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { emailVerificationHash: hash } }).exec();
+  }
+
+  async markEmailVerified(id: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { emailVerified: true, emailVerificationHash: null } }).exec();
+  }
+
+  async setPassword(id: string, passwordHash: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { passwordHash } }).exec();
+  }
+
+  /** Set or clear the stored hashed refresh-token identifier for a user. */
+  async setRefreshTokenHash(id: string, hash: string | null): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { refreshTokenHash: hash } }).exec();
+  }
+
+  /** Find a user and include the refreshTokenHash for token verification. */
+  async findByIdWithRefreshHash(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).select('+refreshTokenHash').exec();
+  }
+
   async findAll(skip = 0, limit = 20): Promise<UserDocument[]> {
     return this.userModel.find().skip(skip).limit(limit).lean().exec() as unknown as Promise<UserDocument[]>;
   }

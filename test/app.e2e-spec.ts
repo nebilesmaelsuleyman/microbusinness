@@ -1,25 +1,34 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { HealthController } from '../src/health/health.controller';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('HealthController (e2e)', () => {
+  let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      controllers: [HealthController],
+      providers: [{ provide: 'DatabaseConnection', useValue: { readyState: 1 } }],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+    }
+  });
+
+  it('/api/health (GET)', async () => {
+    const response = await request(app.getHttpServer()).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.database).toBe('up');
+    expect(response.body).toHaveProperty('timestamp');
   });
 });

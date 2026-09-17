@@ -10,6 +10,7 @@ import {
 import { JobsService } from './jobs.service';
 import { CreateJobRequestDto } from './dto/create-job-request.dto';
 import { UpdateJobStatusDto } from './dto/update-job-status.dto';
+import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
@@ -48,5 +49,17 @@ export class JobsController {
     @CurrentUser() payload: JwtPayload,
   ) {
     return this.jobsService.updateStatus(id, dto.status, payload.sub, payload.role);
+  }
+
+  @Patch(':id/payment')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  updatePaymentStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentStatusDto,
+    @CurrentUser('sub') customerId: string,
+    @CurrentUser('role') role: string,
+  ) {
+    return this.jobsService.updatePaymentStatus(id, dto.paymentStatus, customerId, role);
   }
 }

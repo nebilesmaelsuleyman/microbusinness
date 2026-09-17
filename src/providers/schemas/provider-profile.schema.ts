@@ -38,16 +38,32 @@ export class ProviderProfile {
 
   @Prop({
     type: {
+      city: { type: String, default: null },
+      formattedAddress: { type: String, default: null },
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+    },
+    default: null,
+  })
+  location: {
+    city?: string | null;
+    formattedAddress?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
+
+  @Prop({
+    type: {
       type: String,
       enum: ['Point'],
       default: 'Point',
     },
     coordinates: {
       type: [Number],
-      default: [0, 0],
+      default: null,
     },
   })
-  coordinates: { type: 'Point'; coordinates: [number, number] };
+  coordinates: { type: 'Point'; coordinates: [number, number] } | null;
 }
 
 export const ProviderProfileSchema = SchemaFactory.createForClass(ProviderProfile);

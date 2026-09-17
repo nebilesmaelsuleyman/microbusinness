@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { usersApi } from '../api/client';
+import { usersApi, authApi } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Avatar, Field, PageLoader } from '../components/ui';
 import { IconMapPin, IconCheck } from '../components/icons';
-import { ETHIOPIAN_CITIES, cityForCoordinates } from '../lib/ethiopianCities';
+import { ETHIOPIAN_CITIES } from '../lib/ethiopianCities';
 
 export default function Account() {
   const { user, setUser } = useAuth();
@@ -14,21 +14,38 @@ export default function Account() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState('');
   const [hasLocation, setHasLocation] = useState(false);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sessions, setSessions] = useState<Array<{ _id: string; userAgent?: string; ip?: string; createdAt: string; expiresAt?: string; revoked: boolean }>>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [totpEnabled, setTotpEnabled] = useState(false);
 
   useEffect(() => {
     usersApi.me()
       .then((u) => {
         setName(u.name || '');
         setPhoto(u.profilePhoto || '');
-        if (u.location) { setHasLocation(true); setCity(cityForCoordinates(u.location.latitude, u.location.longitude) ?? ''); }
+        setTotpEnabled(!!(u as any).totpEnabled);
+        if (u.location?.latitude && u.location?.longitude) {
+          setHasLocation(true);
+          setCoords({ lat: u.location.latitude, lng: u.location.longitude });
+          setCity(u.location.city || '');
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    // Load active sessions for session management
+    authApi.sessions()
+      .then((s) => setSessions(s))
+      .catch(() => {})
+      .finally(() => setSessionsLoading(false));
   }, []);
 
   const useMyLocation = () => {
@@ -38,6 +55,31 @@ export default function Account() {
       (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setCity(''); setHasLocation(true); setLocating(false); toast.success('Location captured'); },
       () => { setLocating(false); toast.error('Could not get location'); },
     );
+  };
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    // Preview
+    const url = URL.createObjectURL(f);
+    setLocalPreview(url);
+    setUploading(true);
+    try {
+      const updated = await usersApi.uploadPhoto(f);
+      setPhoto(updated.profilePhoto || '');
+      if (user) setUser({ ...user, profilePhoto: updated.profilePhoto });
+      setLocalPreview(null);
+    } catch (err) {
+      // keep preview but notify
+      // eslint-disable-next-line no-console
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Could not upload');
+    } finally {
+      setUploading(false);
+      try { URL.revokeObjectURL(url); } catch {}
+      // clear the input value so selecting same file again works
+      (e.target as HTMLInputElement).value = '';
+    }
   };
 
   const selectCity = (name: string) => {
@@ -50,11 +92,17 @@ export default function Account() {
     e.preventDefault();
     setSaving(true);
     try {
-      const body: { name?: string; profilePhoto?: string; location?: { latitude: number; longitude: number } } = {
+      const body: { name?: string; profilePhoto?: string; location?: { city?: string; latitude: number; longitude: number } } = {
         name: name.trim(),
         profilePhoto: photo.trim() || undefined,
       };
-      if (coords) body.location = { latitude: coords.lat, longitude: coords.lng };
+      if (coords) {
+        body.location = {
+          city: city || undefined,
+          latitude: coords.lat,
+          longitude: coords.lng,
+        };
+      }
       const updated = await usersApi.updateMe(body);
       if (user) setUser({ ...user, name: updated.name, profilePhoto: updated.profilePhoto, location: updated.location });
       toast.success('Profile saved');
@@ -85,11 +133,24 @@ export default function Account() {
           <input id="name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
         </Field>
 
-        <Field label="Profile photo URL" hint="Paste a link to an image." htmlFor="photo">
-          <input id="photo" className="input" value={photo} onChange={(e) => setPhoto(e.target.value)} placeholder="https://…" />
+        <Field label="Profile photo" hint="Upload an image from your device or paste a link." htmlFor="photo">
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div>
+              <input id="photoFile" type="file" accept="image/*" onChange={onFileChange} />
+              {uploading && <div className="muted small">Uploading…</div>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <input id="photo" className="input" value={photo} onChange={(e) => setPhoto(e.target.value)} placeholder="https://…" />
+              {localPreview && (
+                <div style={{ marginTop: 8 }}>
+                  <img src={localPreview} alt="preview" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 6 }} />
+                </div>
+              )}
+            </div>
+          </div>
         </Field>
 
-        <Field label="Location" hint="Choose the city you use most. This helps us match you with nearby providers.">
+        <Field label="Location" hint="Choose the city you work in. This helps us match you with nearby work and customers.">
           <div className="location-choice">
             <select className="select" value={city} onChange={(e) => selectCity(e.target.value)} aria-label="Choose your city">
               <option value="">Choose a city</option>
@@ -104,6 +165,72 @@ export default function Account() {
 
         <button className="btn btn-primary btn-lg" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
       </form>
+
+      <div className="card card-pad mt-24">
+        <h2>Two-factor authentication</h2>
+        <p className="muted">Optional TOTP (authenticator app) for stronger account security.</p>
+        {totpEnabled ? (
+          <div>
+            <div className="muted">TOTP is enabled for your account.</div>
+            <button className="btn btn-ghost mt-8" onClick={async () => { await authApi.totpDisable(); setTotpEnabled(false); toast.success('TOTP disabled'); }}>Disable TOTP</button>
+          </div>
+        ) : (
+          <div>
+            {totpSecret ? (
+              <div>
+                <div className="muted">Secret: <b style={{ letterSpacing: '0.2em' }}>{totpSecret}</b></div>
+                <div style={{ marginTop: 8 }}>
+                  <input className="input" placeholder="Enter one-time code" value={totpCode} onChange={(e) => setTotpCode(e.target.value)} />
+                  <button className="btn btn-primary ml-8" onClick={async () => {
+                    try {
+                      const res = await authApi.totpVerify(totpCode.trim());
+                      if (res.verified) { setTotpEnabled(true); setTotpSecret(null); toast.success('TOTP enabled'); }
+                      else toast.error('Invalid code');
+                    } catch { toast.error('Could not verify'); }
+                  }}>Verify & Enable</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <button className="btn btn-primary" onClick={async () => {
+                  try {
+                    const res = await authApi.totpSetup();
+                    setTotpSecret(res.base32);
+                    toast.success('TOTP setup ready — enter the code from your authenticator');
+                  } catch { toast.error('Could not prepare TOTP'); }
+                }}>Set up TOTP</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="card card-pad mt-24">
+        <h2>Active sessions</h2>
+        <p className="muted">Manage devices and revoke access.</p>
+        {sessionsLoading ? <div>Loading…</div> : (
+          <div className="sessions-list">
+            {sessions.length === 0 && <div className="muted">No active sessions found.</div>}
+            {sessions.map((s) => (
+              <div key={s._id} className="session-row">
+                <div>
+                  <div style={{ fontWeight: 600 }}>{s.userAgent || 'Unknown device'}</div>
+                  <div className="muted small">{s.ip || 'Unknown IP'} · {new Date(s.createdAt).toLocaleString()}</div>
+                </div>
+                <div>
+                  <button className="btn btn-ghost" onClick={async () => {
+                    try {
+                      await authApi.revokeSession(s._id);
+                      setSessions((cur) => cur.map((c) => c._id === s._id ? { ...c, revoked: true } : c));
+                      toast.success('Session revoked');
+                    } catch (err) { toast.error('Could not revoke'); }
+                  }}>{s.revoked ? 'Revoked' : 'Revoke'}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

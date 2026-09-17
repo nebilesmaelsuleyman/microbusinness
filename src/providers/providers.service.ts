@@ -11,6 +11,7 @@ import { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
 import { SearchProvidersDto } from './dto/search-providers.dto';
 import { VerificationStatus } from '../common/enums';
 import { UserRole } from '../common/enums';
+import { buildLocationData, resolveCityLocation } from '../common/location';
 
 @Injectable()
 export class ProvidersService {
@@ -23,10 +24,21 @@ export class ProvidersService {
   async create(userId: string, dto: CreateProviderProfileDto): Promise<ProviderProfileDocument> {
     const existing = await this.providerModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
     if (existing) throw new ForbiddenException('Provider profile already exists');
+
+    // Resolve location: use provided lat/lng, fallback to city lookup, then default to null
+    const locationData = buildLocationData({
+      city: dto.location?.city || dto.city,
+      formattedAddress: dto.location?.formattedAddress || dto.formattedAddress,
+      latitude: dto.location?.latitude || dto.latitude,
+      longitude: dto.location?.longitude || dto.longitude,
+    });
+
+    // Build GeoJSON coordinates if location exists
     const coordinates =
-      dto.longitude != null && dto.latitude != null
-        ? { type: 'Point' as const, coordinates: [dto.longitude, dto.latitude] }
-        : { type: 'Point' as const, coordinates: [0, 0] };
+      locationData?.latitude != null && locationData?.longitude != null
+        ? { type: 'Point' as const, coordinates: [locationData.longitude, locationData.latitude] }
+        : null;
+
     const created = new this.providerModel({
       userId: new Types.ObjectId(userId),
       serviceCategories: dto.serviceCategories?.map((id) => new Types.ObjectId(id)) ?? [],
@@ -35,6 +47,7 @@ export class ProvidersService {
       serviceRadiusKm: dto.serviceRadiusKm ?? 10,
       pricingModel: dto.pricingModel,
       availabilitySchedule: dto.availabilitySchedule ?? {},
+      location: locationData,
       coordinates,
     });
     return created.save();
@@ -78,18 +91,45 @@ export class ProvidersService {
     const ownerId = new Types.ObjectId(userId);
     const profile = await this.providerModel.findOne({ userId: ownerId }).exec();
     const update: Record<string, unknown> = { ...dto };
-    if (dto.latitude != null && dto.longitude != null) {
-      update.coordinates = { type: 'Point', coordinates: [dto.longitude, dto.latitude] };
+
+    // Resolve location if provided
+    if (
+      dto.location ||
+      dto.city ||
+      dto.formattedAddress ||
+      dto.latitude != null ||
+      dto.longitude != null
+    ) {
+      const locationData = buildLocationData({
+        city: dto.location?.city || dto.city,
+        formattedAddress: dto.location?.formattedAddress || dto.formattedAddress,
+        latitude: dto.location?.latitude || dto.latitude,
+        longitude: dto.location?.longitude || dto.longitude,
+      });
+
+      update.location = locationData;
+
+      // Build GeoJSON coordinates if valid location exists
+      if (locationData?.latitude != null && locationData?.longitude != null) {
+        update.coordinates = {
+          type: 'Point',
+          coordinates: [locationData.longitude, locationData.latitude],
+        };
+      } else {
+        update.coordinates = null;
+      }
     }
+
     if (dto.serviceCategories) {
       update.serviceCategories = dto.serviceCategories.map((id) => new Types.ObjectId(id));
     }
+
+    // Clean up old fields if present in DTO
     delete update.latitude;
     delete update.longitude;
+    delete update.city;
+    delete update.formattedAddress;
 
-    // A legacy/incomplete account can enter the edit screen without a persisted
-    // profile. Saving should establish that profile, not strand the provider on
-    // a 404 response.
     if (!profile) {
       const created = await this.providerModel.findOneAndUpdate(
         { userId: ownerId },
@@ -117,6 +157,7 @@ export class ProvidersService {
     }
 
     if (dto.latitude != null && dto.longitude != null) {
+      // Valid coordinates provided: use nearSphere for distance-based search
       const maxDistanceMeters = (dto.maxDistanceKm ?? 50) * 1000;
       filter['coordinates'] = {
         $nearSphere: {
@@ -127,6 +168,9 @@ export class ProvidersService {
           $maxDistance: maxDistanceMeters,
         },
       };
+    } else if (dto.cityName) {
+      // Fall back to city-name match if no valid coordinates
+      filter['location.city'] = dto.cityName;
     }
 
     const limit = Math.min(dto.limit ?? 20, 100);
@@ -165,9 +209,6 @@ export class ProvidersService {
     const ownerId = new Types.ObjectId(userId);
     let profile = await this.providerModel.findOne({ userId: ownerId }).exec();
 
-    // Legacy/incomplete provider accounts can reach document upload before a
-    // profile was persisted. Keep the verification flow usable and associate
-    // the document with a valid profile owned by the authenticated user.
     if (!profile) {
       profile = await this.providerModel.findOneAndUpdate(
         { userId: ownerId },
@@ -178,7 +219,8 @@ export class ProvidersService {
             serviceDescription: '',
             yearsOfExperience: 0,
             serviceRadiusKm: 10,
-            coordinates: { type: 'Point', coordinates: [0, 0] },
+            location: null,
+            coordinates: null,
           },
         },
         { new: true, upsert: true, setDefaultsOnInsert: true },

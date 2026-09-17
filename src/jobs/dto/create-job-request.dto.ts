@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsNumber, Min, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateJobRequestDto {
   @IsString()
@@ -11,4 +12,14 @@ export class CreateJobRequestDto {
   @IsOptional()
   @IsDateString()
   scheduledDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  quoteAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 }

@@ -16,6 +16,7 @@ import { CreateCategoryDto } from '../categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '../categories/dto/update-category.dto';
 import { CreatePlanDto } from '../subscriptions/dto/create-plan.dto';
 import { UpdatePlanDto } from '../subscriptions/dto/update-plan.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { VerificationStatus } from '../common/enums';
 import { UserRole } from '../common/enums';
 
@@ -72,6 +73,19 @@ export class AdminService {
     return user;
   }
 
+  async updateUser(userId: string, dto: UpdateAdminUserDto) {
+    const update: Record<string, string> = {};
+    if (dto.name !== undefined) update.name = dto.name.trim();
+    if (dto.phoneNumber !== undefined) update.phoneNumber = dto.phoneNumber.trim();
+    if (dto.email !== undefined) update.email = dto.email.trim().toLowerCase();
+    const user = await this.userModel
+      .findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true })
+      .lean()
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
   async deleteUser(userId: string) {
     const user = await this.userModel.findById(userId).exec();
     if (!user) throw new NotFoundException('User not found');
@@ -88,14 +102,19 @@ export class AdminService {
   /* ------------------------------------------------------------- Providers */
 
   async getAllProviders(skip: number, limit: number) {
-    return this.providerModel
-      .find()
-      .populate('userId', 'name phoneNumber')
-      .populate('serviceCategories')
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec();
+    const [items, total] = await Promise.all([
+      this.providerModel
+        .find()
+        .populate('userId', 'name phoneNumber')
+        .populate('serviceCategories')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.providerModel.countDocuments().exec(),
+    ]);
+    return { items, total };
   }
 
   async setProviderVerification(providerId: string, status: 'approved' | 'rejected') {
@@ -108,10 +127,13 @@ export class AdminService {
     return profile;
   }
 
-  async getPendingVerificationDocuments() {
+  async getVerificationDocuments(status?: VerificationStatus) {
+    const filter: Record<string, unknown> = {};
+    if (status) filter.status = status;
+
     return this.verificationDocModel
-      .find({ status: VerificationStatus.PENDING })
-      .populate('providerId')
+      .find(filter)
+      .populate({ path: 'providerId', populate: { path: 'userId', select: 'name phoneNumber profilePhoto' } })
       .sort({ uploadedAt: -1 })
       .lean()
       .exec();

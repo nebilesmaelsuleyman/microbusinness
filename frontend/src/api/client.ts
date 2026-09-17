@@ -68,8 +68,10 @@ export type VerificationStatus = 'pending' | 'approved' | 'rejected';
 export type PricingModel = 'fixed' | 'hourly' | 'quote';
 
 export interface GeoLocation {
-  latitude: number;
-  longitude: number;
+  city?: string | null;
+  formattedAddress?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface AuthUser {
@@ -85,6 +87,7 @@ export interface AuthUser {
 export interface User {
   _id: string;
   phoneNumber: string;
+  email?: string | null;
   name: string;
   role: Role;
   profilePhoto?: string | null;
@@ -142,7 +145,7 @@ export interface ProviderProfile {
 
 export interface VerificationDocument {
   _id: string;
-  providerId: string;
+  providerId: string | ProviderProfile;
   documentType: string;
   documentUrl: string;
   status: VerificationStatus;
@@ -154,8 +157,11 @@ export interface Job {
   customerId: PopulatedUser;
   providerId: string | { _id?: string; userId?: PopulatedUser; serviceDescription?: string };
   status: JobStatus;
+  paymentStatus?: 'pending' | 'paid' | 'refunded';
   description?: string;
   scheduledDate?: string | null;
+  completedAt?: string | null;
+  paidAt?: string | null;
   createdAt: string;
 }
 
@@ -170,6 +176,7 @@ export interface Review {
   _id: string;
   customerId: PopulatedUser;
   providerId: string;
+  jobId?: string;
   rating: number;
   comment?: string;
   createdAt: string;
@@ -233,6 +240,25 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  refresh: () =>
+    api<{ access_token: string; user: AuthUser }>('/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    }),
+  logout: () =>
+    api<{ message: string }>('/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }),
+  sessions: () => api<Array<{ _id: string; userAgent?: string; ip?: string; createdAt: string; expiresAt?: string; revoked: boolean }>>('/auth/sessions'),
+  revokeSession: (id: string) => api('/auth/sessions/' + id, { method: 'DELETE' }),
+  totpSetup: () => api<{ base32: string; otpauth_url: string }>('/auth/totp/setup', { method: 'POST' }),
+  totpVerify: (token: string) => api<{ verified: boolean }>('/auth/totp/verify', { method: 'POST', body: JSON.stringify({ token }) }),
+  totpDisable: () => api<{ ok: boolean }>('/auth/totp/disable', { method: 'POST' }),
+  requestPasswordReset: (email: string) => api<{ sent: boolean; devToken?: string }>('/auth/password/request', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token: string, password: string) => api<{ ok: boolean }>('/auth/password/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  requestEmailVerification: (email: string) => api<{ sent: boolean; devToken?: string }>('/auth/email/request', { method: 'POST', body: JSON.stringify({ email }) }),
+  verifyEmail: (token: string) => api<{ ok: boolean }>('/auth/email/verify', { method: 'POST', body: JSON.stringify({ token }) }),
 };
 
 /* ---------------------------------------------------------------- Users API */
@@ -241,6 +267,11 @@ export const usersApi = {
   me: () => api<User>('/users/me'),
   updateMe: (body: { name?: string; profilePhoto?: string; location?: GeoLocation }) =>
     api<User>('/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
+  uploadPhoto: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiForm<User>('/users/me/photo', form);
+  },
   byId: (id: string) => api<User>(`/users/${id}`),
 };
 
@@ -261,6 +292,7 @@ export interface SearchParams {
   minRating?: number;
   limit?: number;
   skip?: number;
+  cityName?: string;
 }
 
 export interface ProviderProfileInput {
@@ -269,8 +301,16 @@ export interface ProviderProfileInput {
   yearsOfExperience?: number;
   serviceRadiusKm?: number;
   pricingModel?: PricingModel;
+  city?: string;
+  formattedAddress?: string;
   latitude?: number;
   longitude?: number;
+  location?: {
+    city?: string;
+    formattedAddress?: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }
 
 export const providersApi = {
@@ -300,10 +340,12 @@ export const providersApi = {
 export const jobsApi = {
   myList: () => api<Job[]>('/jobs/me/list'),
   one: (id: string) => api<Job>(`/jobs/${id}`),
-  create: (body: { providerId: string; description?: string; scheduledDate?: string }) =>
+  create: (body: { providerId: string; description?: string; scheduledDate?: string; quoteAmount?: number; currency?: string }) =>
     api<Job>('/jobs', { method: 'POST', body: JSON.stringify(body) }),
   updateStatus: (id: string, status: JobStatus) =>
     api<Job>(`/jobs/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updatePaymentStatus: (id: string, paymentStatus: 'pending' | 'paid' | 'refunded') =>
+    api<Job>(`/jobs/${id}/payment`, { method: 'PATCH', body: JSON.stringify({ paymentStatus }) }),
 };
 
 /* ---------------------------------------------------------------- Leads API */
@@ -321,7 +363,7 @@ export const leadsApi = {
 
 export const reviewsApi = {
   byProvider: (providerId: string) => api<Review[]>(`/reviews/provider/${providerId}`),
-  create: (providerId: string, body: { rating: number; comment?: string }) =>
+  create: (providerId: string, body: { jobId: string; rating: number; comment?: string }) =>
     api<Review>(`/reviews/provider/${providerId}`, { method: 'POST', body: JSON.stringify(body) }),
 };
 
@@ -395,12 +437,14 @@ export const adminApi = {
     api<User>(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
   setUserStatus: (id: string, isActive: boolean) =>
     api<User>(`/admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) }),
+  updateUser: (id: string, body: { name?: string; phoneNumber?: string; email?: string }) =>
+    api<User>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteUser: (id: string) =>
     api<{ deleted: boolean }>(`/admin/users/${id}`, { method: 'DELETE' }),
 
   // Providers
   providers: (params: { skip?: number; limit?: number } = {}) =>
-    api<ProviderProfile[]>(`/admin/providers${qs({ ...params })}`),
+    api<Paginated<ProviderProfile>>(`/admin/providers${qs({ ...params })}`),
   verifyProvider: (providerId: string, status: 'approved' | 'rejected') =>
     api<ProviderProfile>(`/admin/providers/${providerId}/verify`, {
       method: 'PATCH',

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Home from '../views/Home';
 import { searchProvidersSSR, listCategoriesSSR } from '../api/server';
 
@@ -10,5 +11,9 @@ export default async function HomePage() {
     listCategoriesSSR(),
   ]);
 
-  return <Home initialProviders={providers ?? []} initialCategories={categories ?? []} />;
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading marketplace...</div>}>
+      <Home initialProviders={providers ?? []} initialCategories={categories ?? []} />
+    </Suspense>
+  );
 }

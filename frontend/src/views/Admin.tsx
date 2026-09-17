@@ -4,7 +4,7 @@ import {
   adminApi, subscriptionsApi,
   type ProviderProfile, type VerificationDocument, type Category,
   type SubscriptionPlan, type JobStats, type RevenueMetrics, type User,
-  type Review, type Job, type Role, type JobStatus, type AuditLog,
+  type Review, type Job, type Role, type JobStatus, type AuditLog, type VerificationStatus,
 } from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import { providerName, currency, relativeTime, userName, verificationMeta, STATUS_META } from '../lib/format';
@@ -59,13 +59,83 @@ function Overview() {
   const [rev, setRev] = useState<RevenueMetrics | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [userTotal, setUserTotal] = useState(0);
+  const [providers, setProviders] = useState<ProviderProfile[]>([]);
+  const [documents, setDocuments] = useState<VerificationDocument[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      adminApi.jobStats().then(setJobs).catch(() => {}),
-      adminApi.revenue().then(setRev).catch(() => {}),
-      adminApi.users({ limit: 200 }).then((r) => { setUsers(r.items); setUserTotal(r.total); }).catch(() => {}),
+      adminApi.jobStats()
+        .then(setJobs)
+        .catch((e) => {
+          console.error('Failed to load job stats:', e);
+        }),
+      adminApi.revenue()
+        .then(setRev)
+        .catch((e) => {
+          console.error('Failed to load revenue:', e);
+        }),
+      adminApi.users({ limit: 200 })
+        .then((r) => {
+          console.log('Users loaded:', r);
+          setUsers(r.items);
+          setUserTotal(r.total);
+        })
+        .catch((e) => {
+          console.error('Failed to load users:', e);
+        }),
+      adminApi.providers({ limit: 200 })
+        .then((p) => {
+          console.log('Providers loaded:', p);
+          setProviders(p.items || []);
+        })
+        .catch((e) => {
+          console.error('Failed to load providers:', e);
+        }),
+      adminApi.verificationDocuments()
+        .then((d) => {
+          console.log('Documents loaded:', d);
+          setDocuments(d);
+        })
+        .catch((e) => {
+          console.error('Failed to load documents:', e);
+        }),
+      adminApi.reviews({ limit: 200 })
+        .then((r) => {
+          console.log('Reviews loaded:', r);
+          setReviews(r.items || []);
+        })
+        .catch((e) => {
+          console.error('Failed to load reviews:', e);
+        }),
+      adminApi.jobs({ limit: 200 })
+        .then((r) => {
+          console.log('Jobs loaded:', r);
+          setAllJobs(r.items || []);
+        })
+        .catch((e) => {
+          console.error('Failed to load jobs:', e);
+        }),
+      adminApi.categories()
+        .then((c) => {
+          console.log('Categories loaded:', c);
+          setCategories(c);
+        })
+        .catch((e) => {
+          console.error('Failed to load categories:', e);
+        }),
+      subscriptionsApi.plans()
+        .then((p) => {
+          console.log('Plans loaded:', p);
+          setPlans(p);
+        })
+        .catch((e) => {
+          console.error('Failed to load plans:', e);
+        }),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -75,6 +145,10 @@ function Overview() {
   const providerCount = users.filter((u) => u.role === 'provider').length;
   const customerCount = users.filter((u) => u.role === 'customer').length;
   const suspendedCount = users.filter((u) => u.isActive === false).length;
+  const adminCount = users.filter((u) => u.role === 'admin').length;
+  const uploadedDocuments = documents.length;
+  const approvedProviders = providers.filter((p) => p.verificationStatus === 'approved').length;
+  const pendingProviders = providers.filter((p) => p.verificationStatus === 'pending').length;
 
   const cards = [
     { label: 'Total revenue', value: currency(rev?.totalRevenue ?? 0), icon: <IconDollar /> },
@@ -110,8 +184,25 @@ function Overview() {
           <h2 style={{ fontSize: 17, marginBottom: 14 }}>Community</h2>
           <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Providers</span><b>{providerCount}</b></div>
           <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Customers</span><b>{customerCount}</b></div>
+          <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Admins</span><b>{adminCount}</b></div>
           <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Suspended accounts</span><b>{suspendedCount}</b></div>
           <div className="row between" style={{ padding: '8px 0' }}><span>Total subscriptions</span><b>{rev?.totalSubscriptions ?? 0}</b></div>
+        </div>
+      </div>
+
+      <div className="grid grid-2">
+        <div className="card card-pad">
+          <h2 style={{ fontSize: 17, marginBottom: 14 }}>Providers</h2>
+          <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Total providers</span><b>{providers.length}</b></div>
+          <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Approved</span><b style={{ color: '#10b981' }}>{approvedProviders}</b></div>
+          <div className="row between" style={{ padding: '8px 0' }}><span>Pending verification</span><b style={{ color: '#f59e0b' }}>{pendingProviders}</b></div>
+        </div>
+        <div className="card card-pad">
+          <h2 style={{ fontSize: 17, marginBottom: 14 }}>Marketplace</h2>
+          <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Categories</span><b>{categories.length}</b></div>
+          <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Uploaded documents</span><b style={{ color: '#f59e0b' }}>{uploadedDocuments}</b></div>
+          <div className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><span>Reviews</span><b>{reviews.length}</b></div>
+          <div className="row between" style={{ padding: '8px 0' }}><span>Subscription plans</span><b>{plans.length}</b></div>
         </div>
       </div>
     </div>
@@ -129,6 +220,9 @@ function Users() {
   const [busy, setBusy] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'' | Role>('');
+  const [editing, setEditing] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', email: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -173,6 +267,26 @@ function Users() {
     finally { setBusy(null); }
   };
 
+  const openEdit = (u: User) => {
+    setEditing(u);
+    setEditForm({ name: u.name || '', phoneNumber: u.phoneNumber || '', email: u.email || '' });
+  };
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingEdit(true);
+    try {
+      const updated = await adminApi.updateUser(editing._id, {
+        name: editForm.name.trim(), phoneNumber: editForm.phoneNumber.trim(), email: editForm.email.trim() || undefined,
+      });
+      setList((prev) => prev.map((u) => (u._id === updated._id ? { ...u, ...updated } : u)));
+      setEditing(null);
+      toast.success('Client details updated');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not update client'); }
+    finally { setSavingEdit(false); }
+  };
+
   return (
     <div className="stack gap-16">
       <div className="row gap-12 wrap">
@@ -198,7 +312,7 @@ function Users() {
                 <Avatar name={u.name || 'U'} src={u.profilePhoto} size="md" />
                 <div className="lr-main">
                   <div className="lr-title">{u.name || 'Unnamed'} {!active && <Badge kind="badge-danger">Suspended</Badge>}</div>
-                  <div className="lr-sub">{u.phoneNumber} · joined {u.createdAt ? relativeTime(u.createdAt) : '—'}</div>
+                  <div className="lr-sub">{u.phoneNumber}{u.email ? ` · ${u.email}` : ''} · joined {u.createdAt ? relativeTime(u.createdAt) : '—'}</div>
                 </div>
                 <select
                   className="select" value={u.role} disabled={busy === u._id}
@@ -208,6 +322,7 @@ function Users() {
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
                 <div className="lr-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)} disabled={busy === u._id}><IconSettings /> Edit</button>
                   <button className={`btn btn-sm ${active ? 'btn-ghost' : 'btn-success'}`} onClick={() => toggleActive(u)} disabled={busy === u._id}>
                     <IconShield /> {active ? 'Suspend' : 'Activate'}
                   </button>
@@ -218,6 +333,16 @@ function Users() {
           })}
         </div>
       )}
+      {editing && (
+        <Modal title="Edit client" onClose={() => setEditing(null)}>
+          <form onSubmit={saveEdit}>
+            <Field label="Full name" htmlFor="admin-user-name"><input id="admin-user-name" className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required /></Field>
+            <Field label="Phone number" htmlFor="admin-user-phone"><input id="admin-user-phone" className="input" value={editForm.phoneNumber} onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })} required /></Field>
+            <Field label="Email (optional)" htmlFor="admin-user-email"><input id="admin-user-email" className="input" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} /></Field>
+            <button className="btn btn-primary btn-block" disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Save client'}</button>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -226,48 +351,135 @@ function Users() {
 function Providers() {
   const toast = useToast();
   const [list, setList] = useState<ProviderProfile[]>([]);
+  const [allProviders, setAllProviders] = useState<ProviderProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
-  useEffect(() => { adminApi.providers({ limit: 100 }).then(setList).catch(() => setList([])).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    setLoading(true);
+    adminApi
+      .providers({ limit: 500 })
+      .then((providers) => {
+        const items = providers.items || [];
+        setAllProviders(items);
+        filterAndSetProviders(items, statusFilter);
+      })
+      .catch(() => {
+        setAllProviders([]);
+        setList([]);
+      })
+      .finally(() => setLoading(false));
+  }, [statusFilter]);
+
+  const filterAndSetProviders = (providers: ProviderProfile[], filter: string) => {
+    if (filter === 'all') {
+      setList(providers);
+    } else {
+      setList(providers.filter((p) => p.verificationStatus === filter));
+    }
+  };
 
   const verify = async (id: string, status: 'approved' | 'rejected') => {
     setBusy(id);
     try {
       const updated = await adminApi.verifyProvider(id, status);
-      setList((prev) => prev.map((p) => (p._id === id ? { ...p, verificationStatus: updated.verificationStatus } : p)));
+      setAllProviders((prev) => prev.map((p) => (p._id === id ? { ...p, verificationStatus: updated.verificationStatus } : p)));
+      filterAndSetProviders(
+        allProviders.map((p) => (p._id === id ? { ...p, verificationStatus: updated.verificationStatus } : p)),
+        statusFilter,
+      );
       toast.success(`Provider ${status}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update');
-    } finally { setBusy(null); }
+    } finally {
+      setBusy(null);
+    }
   };
 
   if (loading) return <PageLoader />;
-  if (list.length === 0) return <div className="card card-pad"><EmptyState icon={<IconShieldCheck />} title="No providers yet" /></div>;
+
+  const pendingCount = allProviders.filter((p) => p.verificationStatus === 'pending').length;
+  const approvedCount = allProviders.filter((p) => p.verificationStatus === 'approved').length;
+  const rejectedCount = allProviders.filter((p) => p.verificationStatus === 'rejected').length;
 
   return (
-    <div className="card card-pad">
-      {list.map((p) => {
-        const verif = verificationMeta(p.verificationStatus);
-        return (
-          <div key={p._id} className="list-row">
-            <Avatar name={providerName(p)} size="md" />
-            <div className="lr-main">
-              <div className="lr-title">{providerName(p)}</div>
-              <div className="lr-sub">{p.serviceDescription ? p.serviceDescription.slice(0, 70) : 'No description'}</div>
-            </div>
-            <span className={`badge ${verif.cls}`}>{verif.label}</span>
-            <div className="lr-actions">
-              {p.verificationStatus !== 'approved' && (
-                <button className="btn btn-success btn-sm" onClick={() => verify(p._id, 'approved')} disabled={busy === p._id}><IconCheck /> Approve</button>
-              )}
-              {p.verificationStatus !== 'rejected' && (
-                <button className="btn btn-ghost btn-sm" onClick={() => verify(p._id, 'rejected')} disabled={busy === p._id}><IconX /> Reject</button>
-              )}
-            </div>
-          </div>
-        );
-      })}
+    <div className="stack gap-16">
+      <div className="grid grid-2" style={{ gap: 12 }}>
+        <div className="card stat">
+          <div className="stat-label"><IconShieldCheck /> Total providers</div>
+          <div className="stat-value">{allProviders.length}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label" style={{ color: '#f59e0b' }}>⏳ Pending</div>
+          <div className="stat-value" style={{ color: '#f59e0b' }}>{pendingCount}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label" style={{ color: '#10b981' }}>✓ Approved</div>
+          <div className="stat-value" style={{ color: '#10b981' }}>{approvedCount}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label" style={{ color: '#ef4444' }}>✕ Rejected</div>
+          <div className="stat-value" style={{ color: '#ef4444' }}>{rejectedCount}</div>
+        </div>
+      </div>
+
+      <div className="row gap-12 wrap">
+        <select
+          className="select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'approved' | 'rejected')}
+          aria-label="Filter by verification status"
+          style={{ width: 200 }}
+        >
+          <option value="all">All providers ({allProviders.length})</option>
+          <option value="pending">Pending verification ({pendingCount})</option>
+          <option value="approved">Approved ({approvedCount})</option>
+          <option value="rejected">Rejected ({rejectedCount})</option>
+        </select>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="card card-pad">
+          <EmptyState
+            icon={<IconShieldCheck />}
+            title="No providers found"
+          >
+            {statusFilter !== 'all' ? `No ${statusFilter} providers yet.` : 'Providers will appear here.'}
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="card card-pad">
+          {list.map((p) => {
+            const verif = verificationMeta(p.verificationStatus);
+            return (
+              <div key={p._id} className="list-row">
+                <Avatar name={providerName(p)} size="md" />
+                <div className="lr-main">
+                  <div className="lr-title">{providerName(p)}</div>
+                  <div className="lr-sub">
+                    {p.serviceDescription ? p.serviceDescription.slice(0, 70) : 'No description'} ·{' '}
+                    {p.yearsOfExperience} years exp. · {p.ratingAverage ? `⭐ ${p.ratingAverage}` : 'No ratings'}
+                  </div>
+                </div>
+                <span className={`badge ${verif.cls}`}>{verif.label}</span>
+                <div className="lr-actions">
+                  {p.verificationStatus !== 'approved' && (
+                    <button className="btn btn-success btn-sm" onClick={() => verify(p._id, 'approved')} disabled={busy === p._id}>
+                      <IconCheck /> Approve
+                    </button>
+                  )}
+                  {p.verificationStatus !== 'rejected' && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => verify(p._id, 'rejected')} disabled={busy === p._id}>
+                      <IconX /> Reject
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -276,40 +488,137 @@ function Providers() {
 function Documents() {
   const toast = useToast();
   const [list, setList] = useState<VerificationDocument[]>([]);
+  const [allDocuments, setAllDocuments] = useState<VerificationDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
 
-  useEffect(() => { adminApi.verificationDocuments().then(setList).catch(() => setList([])).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    setLoading(true);
+    adminApi
+      .verificationDocuments()
+      .then((docs) => {
+        setAllDocuments(docs);
+        filterAndSetDocuments(docs, statusFilter);
+      })
+      .catch(() => {
+        setAllDocuments([]);
+        setList([]);
+      })
+      .finally(() => setLoading(false));
+  }, [statusFilter]);
+
+  const filterAndSetDocuments = (docs: VerificationDocument[], filter: string) => {
+    if (filter === 'all') {
+      setList(docs);
+    } else {
+      setList(docs.filter((d) => d.status === filter));
+    }
+  };
 
   const decide = async (id: string, status: 'approved' | 'rejected') => {
     setBusy(id);
     try {
       await adminApi.setDocumentStatus(id, status);
-      setList((prev) => prev.filter((d) => d._id !== id));
+      setAllDocuments((prev) => prev.map((d) => (d._id === id ? { ...d, status: status as VerificationStatus } : d)));
+      filterAndSetDocuments(
+        allDocuments.map((d) => (d._id === id ? { ...d, status: status as VerificationStatus } : d)),
+        statusFilter,
+      );
       toast.success(`Document ${status}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update');
-    } finally { setBusy(null); }
+    } finally {
+      setBusy(null);
+    }
   };
 
   if (loading) return <PageLoader />;
-  if (list.length === 0) return <div className="card card-pad"><EmptyState icon={<IconDoc />} title="No pending documents" >Verification documents awaiting review will appear here.</EmptyState></div>;
+
+  const pendingCount = allDocuments.filter((d) => d.status === 'pending').length;
+  const approvedCount = allDocuments.filter((d) => d.status === 'approved').length;
+  const rejectedCount = allDocuments.filter((d) => d.status === 'rejected').length;
 
   return (
-    <div className="card card-pad">
-      {list.map((d) => (
-        <div key={d._id} className="list-row">
-          <span className="empty-icon" style={{ margin: 0, width: 40, height: 40 }}><IconDoc /></span>
-          <div className="lr-main">
-            <div className="lr-title" style={{ textTransform: 'capitalize' }}>{d.documentType.replace(/_/g, ' ')}</div>
-            <div className="lr-sub"><a href={d.documentUrl} target="_blank" rel="noreferrer">{d.documentUrl}</a> · {relativeTime(d.uploadedAt)}</div>
-          </div>
-          <div className="lr-actions">
-            <button className="btn btn-success btn-sm" onClick={() => decide(d._id, 'approved')} disabled={busy === d._id}><IconCheck /> Approve</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => decide(d._id, 'rejected')} disabled={busy === d._id}><IconX /> Reject</button>
-          </div>
+    <div className="stack gap-16">
+      <div className="grid grid-2" style={{ gap: 12 }}>
+        <div className="card stat">
+          <div className="stat-label"><IconDoc /> Total documents</div>
+          <div className="stat-value">{allDocuments.length}</div>
         </div>
-      ))}
+        <div className="card stat">
+          <div className="stat-label" style={{ color: '#f59e0b' }}>⏳ Pending</div>
+          <div className="stat-value" style={{ color: '#f59e0b' }}>{pendingCount}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label" style={{ color: '#10b981' }}>✓ Approved</div>
+          <div className="stat-value" style={{ color: '#10b981' }}>{approvedCount}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label" style={{ color: '#ef4444' }}>✕ Rejected</div>
+          <div className="stat-value" style={{ color: '#ef4444' }}>{rejectedCount}</div>
+        </div>
+      </div>
+
+      <div className="row gap-12 wrap">
+        <select
+          className="select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as 'pending' | 'approved' | 'rejected' | 'all')}
+          aria-label="Filter by status"
+          style={{ width: 180 }}
+        >
+          <option value="pending">Pending ({pendingCount})</option>
+          <option value="approved">Approved ({approvedCount})</option>
+          <option value="rejected">Rejected ({rejectedCount})</option>
+          <option value="all">All documents ({allDocuments.length})</option>
+        </select>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="card card-pad">
+          <EmptyState
+            icon={<IconDoc />}
+            title="No documents found"
+          >
+            {statusFilter === 'pending' ? 'Verification documents awaiting review will appear here.' : `No ${statusFilter} documents.`}
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="card card-pad">
+          {list.map((d) => (
+            <div key={d._id} className="list-row">
+              <span className="empty-icon" style={{ margin: 0, width: 40, height: 40 }}>
+                <IconDoc />
+              </span>
+              <div className="lr-main">
+                <div className="lr-title" style={{ textTransform: 'capitalize' }}>
+                  {d.documentType.replace(/_/g, ' ')}
+                </div>
+                <div className="lr-sub">
+                  {typeof d.providerId === 'string' ? 'Provider document' : `Submitted by ${providerName(d.providerId)}`} ·{' '}
+                  {relativeTime(d.uploadedAt)}
+                </div>
+              </div>
+              <div className="lr-actions">
+                <a href={d.documentUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                  <IconDoc /> Review file
+                </a>
+                {d.status !== 'approved' && (
+                  <button className="btn btn-success btn-sm" onClick={() => decide(d._id, 'approved')} disabled={busy === d._id}>
+                    <IconCheck /> Approve
+                  </button>
+                )}
+                {d.status !== 'rejected' && (
+                  <button className="btn btn-ghost btn-sm btn-danger" onClick={() => decide(d._id, 'rejected')} disabled={busy === d._id}>
+                    <IconX /> Reject
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -321,10 +630,30 @@ function Reviews() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [ratingFilter, setRatingFilter] = useState<'all' | '5' | '4' | '3' | '2' | '1'>('all');
 
   useEffect(() => {
-    adminApi.reviews({ limit: 50 }).then((r) => { setList(r.items); setTotal(r.total); }).catch(() => setList([])).finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    adminApi
+      .reviews({ limit: 500 })
+      .then((r) => {
+        setTotal(r.total);
+        filterAndSetReviews(r.items, ratingFilter);
+      })
+      .catch(() => {
+        setList([]);
+        setTotal(0);
+      })
+      .finally(() => setLoading(false));
+  }, [ratingFilter]);
+
+  const filterAndSetReviews = (reviews: Review[], filter: string) => {
+    if (filter === 'all') {
+      setList(reviews);
+    } else {
+      setList(reviews.filter((r) => r.rating === Number(filter)));
+    }
+  };
 
   const remove = async (id: string) => {
     if (!window.confirm('Delete this review? The provider rating will be recalculated.')) return;
@@ -334,26 +663,74 @@ function Reviews() {
       setList((prev) => prev.filter((r) => r._id !== id));
       setTotal((t) => t - 1);
       toast.success('Review deleted');
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not delete'); }
-    finally { setBusy(null); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not delete');
+    } finally {
+      setBusy(null);
+    }
   };
 
   if (loading) return <PageLoader />;
-  if (list.length === 0) return <div className="card card-pad"><EmptyState icon={<IconStar />} title="No reviews yet" /></div>;
+
+  const ratingCounts = [5, 4, 3, 2, 1].map((rating) => total > 0 ? Math.round((total / total) * (total / 5)) : 0);
 
   return (
-    <div className="card card-pad">
-      <div className="muted small mb-16">{total} review{total !== 1 ? 's' : ''} total</div>
-      {list.map((r) => (
-        <div key={r._id} className="list-row">
-          <Avatar name={userName(r.customerId, 'Customer')} size="md" />
-          <div className="lr-main">
-            <div className="lr-title">{userName(r.customerId, 'Customer')} · <span style={{ color: '#d97706' }}>{'★'.repeat(r.rating)}</span></div>
-            <div className="lr-sub">{r.comment ? `"${r.comment}"` : <em>No comment</em>} · {relativeTime(r.createdAt)}</div>
-          </div>
-          <button className="btn btn-ghost btn-sm btn-danger" onClick={() => remove(r._id)} disabled={busy === r._id}><IconX /> Delete</button>
+    <div className="stack gap-16">
+      <div className="grid grid-stats">
+        <div className="card stat">
+          <div className="stat-label"><IconStar /> Total reviews</div>
+          <div className="stat-value">{total}</div>
         </div>
-      ))}
+        <div className="card stat">
+          <div className="stat-label">⭐ Avg rating</div>
+          <div className="stat-value">
+            {total > 0 ? (list.reduce((sum, r) => sum + r.rating, 0) / list.length).toFixed(1) : '—'}
+          </div>
+        </div>
+      </div>
+
+      <div className="row gap-12 wrap">
+        <select
+          className="select"
+          value={ratingFilter}
+          onChange={(e) => setRatingFilter(e.target.value as 'all' | '5' | '4' | '3' | '2' | '1')}
+          aria-label="Filter by rating"
+          style={{ width: 150 }}
+        >
+          <option value="all">All reviews ({total})</option>
+          <option value="5">★★★★★ 5 stars</option>
+          <option value="4">★★★★ 4 stars</option>
+          <option value="3">★★★ 3 stars</option>
+          <option value="2">★★ 2 stars</option>
+          <option value="1">★ 1 star</option>
+        </select>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="card card-pad">
+          <EmptyState icon={<IconStar />} title="No reviews found">Reviews will appear here.</EmptyState>
+        </div>
+      ) : (
+        <div className="card card-pad">
+          <div className="muted small mb-16">
+            {list.length} review{list.length !== 1 ? 's' : ''} {ratingFilter !== 'all' ? `(${ratingFilter} star${ratingFilter !== '1' ? 's' : ''})` : ''}
+          </div>
+          {list.map((r) => (
+            <div key={r._id} className="list-row">
+              <Avatar name={userName(r.customerId, 'Customer')} size="md" />
+              <div className="lr-main">
+                <div className="lr-title">
+                  {userName(r.customerId, 'Customer')} · <span style={{ color: '#d97706' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                </div>
+                <div className="lr-sub">{r.comment ? `"${r.comment}"` : <em>No comment</em>} · {relativeTime(r.createdAt)}</div>
+              </div>
+              <button className="btn btn-ghost btn-sm btn-danger" onClick={() => remove(r._id)} disabled={busy === r._id}>
+                <IconX /> Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -371,40 +748,94 @@ function jobProviderName(j: Job): string {
 
 function Jobs() {
   const [list, setList] = useState<Job[]>([]);
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'' | JobStatus>('');
 
   useEffect(() => {
     setLoading(true);
-    adminApi.jobs({ limit: 50, status: statusFilter || undefined })
-      .then((r) => { setList(r.items); setTotal(r.total); })
-      .catch(() => setList([]))
+    adminApi
+      .jobs({ limit: 500, status: statusFilter || undefined })
+      .then((r) => {
+        setTotal(r.total);
+        setAllJobs(r.items);
+        setList(r.items);
+      })
+      .catch(() => {
+        setList([]);
+        setTotal(0);
+        setAllJobs([]);
+      })
       .finally(() => setLoading(false));
   }, [statusFilter]);
 
+  if (loading) return <PageLoader />;
+
+  const statusCounts = JOB_STATUSES.map((s) => ({
+    status: s,
+    count: allJobs.filter((j) => j.status === s).length,
+  }));
+
   return (
     <div className="stack gap-16">
+      <div className="grid grid-stats">
+        <div className="card stat">
+          <div className="stat-label"><IconBriefcase /> Total jobs</div>
+          <div className="stat-value">{total}</div>
+        </div>
+        {statusCounts.slice(0, 3).map((sc) => (
+          <div key={sc.status} className="card stat">
+            <div className="stat-label" style={{ textTransform: 'capitalize' }}>{sc.status}</div>
+            <div className="stat-value">{sc.count}</div>
+          </div>
+        ))}
+      </div>
+
       <div className="row between wrap gap-12">
-        <h2 style={{ fontSize: 17 }}>{total} job{total !== 1 ? 's' : ''}</h2>
-        <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | JobStatus)} aria-label="Filter by status" style={{ width: 180 }}>
-          <option value="">All statuses</option>
-          {JOB_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        <select
+          className="select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as '' | JobStatus)}
+          aria-label="Filter by status"
+          style={{ width: 200 }}
+        >
+          <option value="">All jobs ({total})</option>
+          {JOB_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s.charAt(0).toUpperCase() + s.slice(1)} ({statusCounts.find((sc) => sc.status === s)?.count || 0})
+            </option>
+          ))}
         </select>
       </div>
 
-      {loading ? <PageLoader /> : list.length === 0 ? (
-        <div className="card card-pad"><EmptyState icon={<IconBriefcase />} title="No jobs found" /></div>
+      {list.length === 0 ? (
+        <div className="card card-pad">
+          <EmptyState
+            icon={<IconBriefcase />}
+            title="No jobs found"
+          >
+            {statusFilter ? `No ${statusFilter} jobs yet.` : 'Jobs will appear here.'}
+          </EmptyState>
+        </div>
       ) : (
         <div className="card card-pad">
+          <div className="muted small mb-16">
+            {list.length} job{list.length !== 1 ? 's' : ''}
+            {statusFilter && ` (${statusFilter})`}
+          </div>
           {list.map((j) => {
             const meta = STATUS_META[j.status];
             return (
               <div key={j._id} className="list-row">
-                <span className="empty-icon" style={{ margin: 0, width: 40, height: 40 }}><IconBriefcase /></span>
+                <span className="empty-icon" style={{ margin: 0, width: 40, height: 40 }}>
+                  <IconBriefcase />
+                </span>
                 <div className="lr-main">
                   <div className="lr-title">{userName(j.customerId, 'Customer')} → {jobProviderName(j)}</div>
-                  <div className="lr-sub">{j.description ? j.description.slice(0, 80) : 'No description'} · {relativeTime(j.createdAt)}</div>
+                  <div className="lr-sub">
+                    {j.description ? j.description.slice(0, 80) : 'No description'} · {relativeTime(j.createdAt)}
+                  </div>
                 </div>
                 <span className={`badge ${meta?.cls ?? 'badge'}`}>{meta?.label ?? j.status}</span>
               </div>

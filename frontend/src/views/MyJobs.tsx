@@ -43,6 +43,19 @@ export default function MyJobs() {
     }
   };
 
+  const confirmPayment = async (id: string) => {
+    setUpdating(id);
+    try {
+      const updated = await jobsApi.updatePaymentStatus(id, 'paid');
+      setJobs((prev) => prev.map((j) => (j._id === id ? { ...j, ...updated } : j)));
+      toast.success('Payment confirmed');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not confirm payment');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const providerUid = (j: Job): string | null => {
     const p = j.providerId;
     if (p && typeof p === 'object' && p.userId) {
@@ -129,8 +142,14 @@ export default function MyJobs() {
                       <button className="btn btn-ghost btn-sm" onClick={() => update(j._id, 'rejected')} disabled={updating === j._id}><IconX /> Decline</button>
                     </>
                   )}
+                  {isProvider && j.status === 'accepted' && (
+                    <button className="btn btn-primary btn-sm" onClick={() => update(j._id, 'completed')} disabled={updating === j._id}><IconCheck /> Mark completed</button>
+                  )}
                   {!isProvider && (j.status === 'requested' || j.status === 'accepted') && (
                     <button className="btn btn-danger btn-sm" onClick={() => update(j._id, 'cancelled')} disabled={updating === j._id}>Cancel</button>
+                  )}
+                  {!isProvider && j.status === 'completed' && j.paymentStatus !== 'paid' && (
+                    <button className="btn btn-success btn-sm" onClick={() => confirmPayment(j._id)} disabled={updating === j._id}>Confirm payment</button>
                   )}
                 </div>
               </div>

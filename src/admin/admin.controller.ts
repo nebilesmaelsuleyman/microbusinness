@@ -22,6 +22,8 @@ import { CreateCategoryDto } from '../categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '../categories/dto/update-category.dto';
 import { CreatePlanDto } from '../subscriptions/dto/create-plan.dto';
 import { UpdatePlanDto } from '../subscriptions/dto/update-plan.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
+import { VerificationStatus } from '../common/enums';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -57,6 +59,11 @@ export class AdminController {
     return this.adminService.setUserActive(id, isActive);
   }
 
+  @Patch('users/:id')
+  updateUser(@Param('id') id: string, @Body() dto: UpdateAdminUserDto) {
+    return this.adminService.updateUser(id, dto);
+  }
+
   @Delete('users/:id')
   deleteUser(@Param('id') id: string) {
     return this.adminService.deleteUser(id);
@@ -78,8 +85,8 @@ export class AdminController {
   }
 
   @Get('verification-documents')
-  getPendingVerificationDocuments() {
-    return this.adminService.getPendingVerificationDocuments();
+  getVerificationDocuments(@Query('status') status?: VerificationStatus) {
+    return this.adminService.getVerificationDocuments(status);
   }
 
   @Patch('verification-documents/:docId')

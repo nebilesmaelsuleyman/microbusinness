@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { AuthUser } from '../api/client';
+import { AuthUser, authApi } from '../api/client';
 
 const TOKEN_KEY = 'microbusiness_token';
 const USER_KEY = 'microbusiness_user';
@@ -35,6 +35,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  // After initial hydration, if there's no token try to refresh using httpOnly cookie.
+  useEffect(() => {
+    if (loading) return;
+    if (token) return; // already signed in
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await authApi.refresh();
+        if (!mounted) return;
+        setToken(res.access_token);
+        setUserState(res.user);
+      } catch {
+        // ignore; not authenticated
+      }
+    })();
+    return () => { mounted = false; };
+  }, [loading, token]);
+
   // Persist changes only after the initial load, so we don't clobber storage.
   useEffect(() => {
     if (loading) return;
@@ -54,6 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Fire-and-forget server logout to clear refresh cookie
+    try { void authApi.logout(); } catch { /* ignore */ }
     setToken(null);
     setUserState(null);
   }, []);

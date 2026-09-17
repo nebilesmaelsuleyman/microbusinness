@@ -11,6 +11,9 @@ export class Review {
   @Prop({ type: Types.ObjectId, ref: 'ProviderProfile', required: true })
   providerId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'JobRequest', required: true })
+  jobId: Types.ObjectId;
+
   @Prop({ min: 1, max: 5, required: true })
   rating: number;
 
@@ -24,3 +27,4 @@ export class Review {
 export const ReviewSchema = SchemaFactory.createForClass(Review);
 ReviewSchema.index({ providerId: 1 });
 ReviewSchema.index({ customerId: 1, providerId: 1 }, { unique: true });
+ReviewSchema.index({ customerId: 1, jobId: 1 }, { unique: true });

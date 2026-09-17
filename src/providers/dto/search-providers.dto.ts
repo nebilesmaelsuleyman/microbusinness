@@ -46,4 +46,8 @@ export class SearchProvidersDto {
   @Min(0)
   @Type(() => Number)
   skip?: number;
+
+  @IsOptional()
+  @IsString()
+  cityName?: string;
 }

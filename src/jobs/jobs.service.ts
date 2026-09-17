@@ -4,8 +4,7 @@ import { Model, Types } from 'mongoose';
 import { JobRequest, JobRequestDocument } from './schemas/job-request.schema';
 import { ProviderProfile, ProviderProfileDocument } from '../providers/schemas/provider-profile.schema';
 import { CreateJobRequestDto } from './dto/create-job-request.dto';
-import { JobStatus } from '../common/enums';
-import { UserRole } from '../common/enums';
+import { JobStatus, PaymentStatus, UserRole } from '../common/enums';
 
 @Injectable()
 export class JobsService {
@@ -15,13 +14,22 @@ export class JobsService {
   ) {}
 
   async create(customerId: string, dto: CreateJobRequestDto): Promise<JobRequestDocument> {
+    const provider = await this.providerModel.findById(dto.providerId).exec();
+    if (!provider) {
+      throw new NotFoundException('Provider not found');
+    }
+
     const job = new this.jobModel({
       customerId: new Types.ObjectId(customerId),
       providerId: new Types.ObjectId(dto.providerId),
       description: dto.description ?? '',
       scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null,
+      quoteAmount: dto.quoteAmount ?? 0,
+      currency: dto.currency ?? 'ETB',
       status: JobStatus.REQUESTED,
+      paymentStatus: PaymentStatus.PENDING,
     });
+
     return job.save();
   }
 
@@ -39,21 +47,77 @@ export class JobsService {
   ): Promise<JobRequestDocument> {
     const job = await this.jobModel.findById(jobId).exec();
     if (!job) throw new NotFoundException('Job request not found');
+
     if (role === UserRole.SERVICE_PROVIDER) {
       const profile = await this.providerModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
       if (!profile || job.providerId.toString() !== profile._id.toString()) {
         throw new ForbiddenException('Not your job');
       }
-      if (![JobStatus.ACCEPTED, JobStatus.REJECTED].includes(status)) {
-        throw new ForbiddenException('Provider can only accept or reject');
+
+      if (status === JobStatus.ACCEPTED) {
+        job.status = JobStatus.ACCEPTED;
+        job.paymentStatus = PaymentStatus.PENDING;
+        job.completedAt = null;
+        job.paidAt = null;
+        return job.save();
       }
-    } else if (role === UserRole.CUSTOMER) {
-      if (job.customerId.toString() !== userId) throw new ForbiddenException('Not your job');
-      if (status !== JobStatus.CANCELLED) {
-        throw new ForbiddenException('Customer can only cancel');
+
+      if (status === JobStatus.REJECTED) {
+        job.status = JobStatus.REJECTED;
+        return job.save();
       }
+
+      if (status === JobStatus.COMPLETED) {
+        if (job.status !== JobStatus.ACCEPTED) {
+          throw new ForbiddenException('Only an accepted job can be marked as completed');
+        }
+        job.status = JobStatus.COMPLETED;
+        job.completedAt = new Date();
+        return job.save();
+      }
+
+      throw new ForbiddenException('Provider can only accept, reject, or complete jobs');
     }
-    job.status = status;
+
+    if (role === UserRole.CUSTOMER) {
+      if (job.customerId.toString() !== userId) throw new ForbiddenException('Not your job');
+      if (status === JobStatus.CANCELLED) {
+        if (![JobStatus.REQUESTED, JobStatus.ACCEPTED].includes(job.status)) {
+          throw new ForbiddenException('Only requested or accepted jobs can be cancelled');
+        }
+        job.status = JobStatus.CANCELLED;
+        return job.save();
+      }
+
+      throw new ForbiddenException('Customer can only cancel a job');
+    }
+
+    throw new ForbiddenException('Invalid role');
+  }
+
+  async updatePaymentStatus(
+    jobId: string,
+    paymentStatus: PaymentStatus,
+    userId: string,
+    role: string,
+  ): Promise<JobRequestDocument> {
+    const job = await this.jobModel.findById(jobId).exec();
+    if (!job) throw new NotFoundException('Job request not found');
+    if (role !== UserRole.CUSTOMER) {
+      throw new ForbiddenException('Only the customer can confirm payment');
+    }
+    if (job.customerId.toString() !== userId) {
+      throw new ForbiddenException('Not your job');
+    }
+    if (job.status !== JobStatus.COMPLETED) {
+      throw new ForbiddenException('Payment can only be confirmed after the provider completes the work');
+    }
+    if (paymentStatus !== PaymentStatus.PAID) {
+      throw new ForbiddenException('Only payment confirmation to paid is supported in this MVP');
+    }
+
+    job.paymentStatus = PaymentStatus.PAID;
+    job.paidAt = new Date();
     return job.save();
   }
 

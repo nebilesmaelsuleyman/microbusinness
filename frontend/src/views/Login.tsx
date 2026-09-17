@@ -178,6 +178,7 @@ export default function Login() {
                   <input id="password" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" required />
                 </Field>
                 <button className="btn btn-primary btn-block btn-lg" disabled={loading}>{loading ? 'Logging in…' : 'Log in'}</button>
+                <div style={{ marginTop: 8, textAlign: 'right' }}><button type="button" className="btn btn-link" onClick={() => navigate('/password-reset')}>Forgot password?</button></div>
               </form>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--muted)', fontSize: 13, margin: '18px 0' }}>
                 <span style={{ flex: 1, height: 1, background: 'var(--border)' }} /> or <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />

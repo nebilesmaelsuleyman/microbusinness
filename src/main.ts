@@ -13,8 +13,25 @@ async function bootstrap() {
 
   // Security headers + response compression.
   // crossOriginResourcePolicy disabled so the cross-origin frontend (port 3001) can load
-  // uploaded files served from /uploads on this origin.
-  app.use(helmet({ crossOriginResourcePolicy: false }));
+  // uploaded files served from /uploads on this origin. Add stricter CSP and HSTS in production.
+  const isProd = process.env.NODE_ENV === 'production';
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: false,
+      contentSecurityPolicy: isProd
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:'],
+              connectSrc: ["'self'"].concat(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []),
+              frameAncestors: ["'none'"],
+            },
+          }
+        : false,
+    }),
+  );
   app.use(compression());
 
   // Serve uploaded files (verification documents, etc.) from /uploads.

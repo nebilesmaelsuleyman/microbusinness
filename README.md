@@ -83,6 +83,17 @@ Check out a few resources that may come in handy when working with NestJS:
 - To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
 - Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
+## Security & Auth Enhancements
+
+- Added rotating per-device refresh-token sessions, optional TOTP, and stricter default JWT expiry.
+- New dependencies: `speakeasy` (TOTP). Run `npm install` after pulling changes.
+
+DB migration: new fields/tables created for sessions and TOTP on users. No automatic migration; existing users won't have TOTP enabled unless they opt-in.
+
+Password reset & email verification
+- Endpoints added: `POST /api/auth/password/request`, `POST /api/auth/password/reset`, `POST /api/auth/email/request`, `POST /api/auth/email/verify`.
+- To send real emails, configure SMTP via environment variables (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`). If SMTP is not configured, the server returns a development token in the API response so you can test the flow locally.
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).

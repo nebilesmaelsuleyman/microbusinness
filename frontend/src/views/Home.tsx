@@ -161,12 +161,18 @@ export default function Home({ initialProviders = [], initialCategories = [] }: 
     const params: SearchParams = { limit: requestedService ? 100 : 6 };
     if (categoryId) params.categoryId = categoryId;
     if (minRating) params.minRating = Number(minRating);
-    if (coords) { params.latitude = coords.lat; params.longitude = coords.lng; params.maxDistanceKm = 50; }
+    if (coords) {
+      params.latitude = coords.lat;
+      params.longitude = coords.lng;
+      params.maxDistanceKm = 50;
+    } else if (city) {
+      params.cityName = city;
+    }
     providersApi.search(params)
       .then(setProviders)
       .catch(() => setProviders([]))
       .finally(() => setLoading(false));
-  }, [categoryId, minRating, coords, requestedService]);
+  }, [categoryId, minRating, coords, city, requestedService]);
 
   const seeded = useRef(initialProviders.length > 0);
   useEffect(() => {

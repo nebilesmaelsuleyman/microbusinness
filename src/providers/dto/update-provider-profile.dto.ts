@@ -42,13 +42,30 @@ export class UpdateProviderProfileDto {
   @IsOptional()
   availabilitySchedule?: Record<string, unknown>;
 
-  @IsNumber()
   @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  formattedAddress?: string;
+
+  @IsOptional()
+  @IsNumber()
   @Type(() => Number)
   latitude?: number;
 
-  @IsNumber()
   @IsOptional()
+  @IsNumber()
   @Type(() => Number)
   longitude?: number;
+
+  @IsObject()
+  @IsOptional()
+  location?: {
+    city?: string;
+    formattedAddress?: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }
